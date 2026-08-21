@@ -1,5 +1,4 @@
 import { IoMdClose } from "react-icons/io";
-import NotepadImg from "../../public/img/notepad.png";
 import { VscChromeMaximize } from "react-icons/vsc";
 import { FiMinimize } from "react-icons/fi";
 import React, { useState } from "react";
@@ -28,7 +27,7 @@ const Notepad: React.FC<NotepadProps> = ({ title, text, setActiveFile }) => {
         className="bg-white font-mono rounded-sm overflow-hidden shadow-sm flex flex-col">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 pl-2">
-            <img className="size-4.5" src={NotepadImg} alt="Notepad Icon" />
+            <img className="size-4.5" src='/img/notepad.png' alt="Notepad Icon" />
             <p className="text-sm">{title} - Notepad</p>
           </div>
           <div className="flex">

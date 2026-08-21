@@ -3,9 +3,7 @@ import "./App.css";
 import Header from "./components/Header";
 import type { MenuPosition } from "./components/ContextMenu";
 import ContextMenu from "./components/ContextMenu";
-import { VscNewFile } from "react-icons/vsc";
-import { RiDeleteBinLine } from "react-icons/ri";
-import { FileExplorer } from "./components/FileExplorer";
+import FileExplorer from "./components/FileExplorer";
 
 function App() {
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
@@ -16,24 +14,6 @@ function App() {
       y: e.clientY,
     });
   };
-
-  const menuItems = [
-    {
-      icon: <VscNewFile className="size-4" />,
-      label: "New File",
-      action: () => alert("Edit clicked!"),
-    },
-    {
-      icon: <VscNewFile className="size-4" />,
-      label: "Duplicate",
-      action: () => alert("Duplicate clicked!"),
-    },
-    {
-      icon: <RiDeleteBinLine className="size-4" />,
-      label: "Delete",
-      action: () => alert("Delete clicked!"),
-    },
-  ];
   return (
     <>
       <Header />
@@ -43,7 +23,6 @@ function App() {
       <ContextMenu
         position={menuPosition}
         onClose={() => setMenuPosition(null)}
-        items={menuItems}
       />
     </>
   );

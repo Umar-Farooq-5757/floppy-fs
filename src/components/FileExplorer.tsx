@@ -7,9 +7,12 @@ import {
   IoFolderOutline,
 } from "react-icons/io5";
 import { getFileContentByHash } from "../db/fileOperations";
-import { VscNewFile } from "react-icons/vsc";
-import { MdOutlineFileOpen } from "react-icons/md";
+import { VscNewFile, VscNewFolder } from "react-icons/vsc";
 import Notepad from "./Notepad";
+import NewFile from "./NewFile";
+import { useAppContext } from "../context/AppContext";
+import { Toaster } from "react-hot-toast";
+import NewFolder from "./NewFolder";
 
 export interface ActiveFile {
   id: string;
@@ -18,6 +21,12 @@ export interface ActiveFile {
 }
 
 export const FileExplorer: React.FC = () => {
+  const {
+    isNewFileModalOpen,
+    setIsNewFileModalOpen,
+    isNewFolderModalOpen,
+    setIsNewFolderModalOpen,
+  } = useAppContext();
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [activeFile, setActiveFile] = useState<ActiveFile | null>(null);
 
@@ -56,13 +65,17 @@ export const FileExplorer: React.FC = () => {
           className="opacity-60 hover:opacity-100">
           <IoArrowBackOutline />
         </button>
-        <div className="flex items-center gap-2 hover:bg-black/10 w-fit py-1 px-2 cursor-default rounded-xs">
+        <div
+          onClick={() => setIsNewFileModalOpen(true)}
+          className="flex items-center gap-2 hover:bg-black/10 w-fit py-1 px-2 cursor-default rounded-xs">
           <VscNewFile />
           <p className="text-sm">New File</p>
         </div>
-        <div className="flex items-center gap-2 hover:bg-black/10 w-fit py-1 px-2 cursor-default rounded-xs">
-          <MdOutlineFileOpen />
-          <p className="text-sm">Open</p>
+        <div
+          onClick={() => setIsNewFolderModalOpen(true)}
+          className="flex items-center gap-2 hover:bg-black/10 w-fit py-1 px-2 cursor-default rounded-xs">
+          <VscNewFolder />
+          <p className="text-sm">New Folder</p>
         </div>
       </section>
     );
@@ -101,6 +114,23 @@ export const FileExplorer: React.FC = () => {
           setActiveFile={setActiveFile}
         />
       )}
+      {isNewFileModalOpen && (
+        <NewFile
+          onClose={() => setIsNewFileModalOpen(false)}
+          currentFolderId={currentFolderId}
+        />
+      )}
+      {isNewFolderModalOpen && (
+        <NewFolder
+          onClose={() => setIsNewFolderModalOpen(false)}
+          currentFolderId={currentFolderId}
+        />
+      )}
+      <Toaster position="top-right" reverseOrder={false} />
     </section>
   );
 };
+
+export default FileExplorer;
+
+// https://hastebin.com/share/ozacojutah.typescript

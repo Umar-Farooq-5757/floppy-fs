@@ -1,23 +1,38 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
+import { useAppContext } from "../context/AppContext";
+import { VscNewFile } from "react-icons/vsc";
+import { RiDeleteBinLine } from "react-icons/ri";
 
 export interface MenuPosition {
   x: number;
   y: number;
 }
 
-interface MenuItem {
-  label: string;
-  action: () => void;
-  icon?: ReactNode;
-}
-
 interface ContextMenuProps {
   position: MenuPosition | null;
   onClose: () => void;
-  items: MenuItem[];
 }
 
-const ContextMenu = ({ position, onClose, items }: ContextMenuProps) => {
+const ContextMenu = ({ position, onClose }: ContextMenuProps) => {
+  const {setIsNewFileModalOpen}=useAppContext()
+  
+  const menuItems = [
+    {
+      icon: <VscNewFile className="size-4" />,
+      label: "New File",
+      action: () => setIsNewFileModalOpen(true),
+    },
+    {
+      icon: <VscNewFile className="size-4" />,
+      label: "Duplicate",
+      action: () => alert("Duplicate clicked!"),
+    },
+    {
+      icon: <RiDeleteBinLine className="size-4" />,
+      label: "Delete",
+      action: () => alert("Delete clicked!"),
+    },
+  ];
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,7 +68,7 @@ const ContextMenu = ({ position, onClose, items }: ContextMenuProps) => {
       ref={menuRef}
       style={{ top: `${position.y}px`, left: `${position.x}px` }}
       className="fixed z-50 min-w-60 rounded-lg border border-slate-200 bg-black/2 shadow-xs py-1 px-2 backdrop-blur-md transition-all">
-      {items.map((item, index) => (
+      {menuItems.map((item, index) => (
         <button
           key={index}
           onClick={() => {
