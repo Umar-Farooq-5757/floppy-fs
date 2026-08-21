@@ -2,14 +2,22 @@ import { IoMdClose } from "react-icons/io";
 import NotepadImg from "../../public/img/notepad.png";
 import { VscChromeMaximize } from "react-icons/vsc";
 import { FiMinimize } from "react-icons/fi";
-import { useState } from "react";
+import React, { useState } from "react";
+import type { ActiveFile } from "./FileExplorer";
 
-const Notepad = ({ title, text, setActiveFile }) => {
+interface NotepadProps {
+  title: string;
+  text: string;
+  setActiveFile: React.Dispatch<React.SetStateAction<ActiveFile | null>>;
+}
+
+const Notepad: React.FC<NotepadProps> = ({ title, text, setActiveFile }) => {
   const [notepadSize, setNotepadSize] = useState({
     height: "60%",
     width: "60%",
   });
-  const [notepadText,setNotepadText] = useState(text)
+  const [notepadText, setNotepadText] = useState(text);
+
   return (
     <div
       onClick={() => setActiveFile(null)}
@@ -17,14 +25,18 @@ const Notepad = ({ title, text, setActiveFile }) => {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{ height: notepadSize.height, width: notepadSize.width }}
-        className="bg-white font-mono rounded-sm overflow-hidden shadow-sm">
+        className="bg-white font-mono rounded-sm overflow-hidden shadow-sm flex flex-col">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 pl-2">
             <img className="size-4.5" src={NotepadImg} alt="Notepad Icon" />
             <p className="text-sm">{title} - Notepad</p>
           </div>
           <div className="flex">
-            <button onClick={() => setNotepadSize({ height: "60%", width: "60%" })} title="minimize" className="hover:bg-black/7 py-2 px-4">
+            <button 
+              onClick={() => setNotepadSize({ height: "60%", width: "60%" })} 
+              title="minimize" 
+              className="hover:bg-black/7 py-2 px-4"
+            >
               <FiMinimize size={14} />
             </button>
             <button
@@ -43,9 +55,9 @@ const Notepad = ({ title, text, setActiveFile }) => {
         </div>
         <div className="w-full h-0.5 bg-black/5"></div>
         <textarea 
-        className="outline-none px-2 py-1 w-full h-full"
+          className="outline-none px-2 py-1 w-full flex-1 resize-none"
           value={notepadText} 
-          onChange={(e)=>setNotepadText(e.target.value)}
+          onChange={(e) => setNotepadText(e.target.value)}
         />
       </div>
     </div>

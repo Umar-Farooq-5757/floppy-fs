@@ -11,13 +11,15 @@ import { VscNewFile } from "react-icons/vsc";
 import { MdOutlineFileOpen } from "react-icons/md";
 import Notepad from "./Notepad";
 
+export interface ActiveFile {
+  id: string;
+  title: string;
+  content: string;
+}
+
 export const FileExplorer: React.FC = () => {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [activeFile, setActiveFile] = useState<{
-    id: string;
-    title: string;
-    content: string;
-  } | null>(null);
+  const [activeFile, setActiveFile] = useState<ActiveFile | null>(null);
 
   const currentItems = useLiveQuery(() => {
     if (currentFolderId === null) {
@@ -28,7 +30,7 @@ export const FileExplorer: React.FC = () => {
   }, [currentFolderId]);
 
   const currentFolder = useLiveQuery(
-    () => (currentFolderId ? db.nodes.get(currentFolderId) : null),
+    () => (currentFolderId ? db.nodes.get(currentFolderId) : undefined),
     [currentFolderId],
   );
 
@@ -75,7 +77,9 @@ export const FileExplorer: React.FC = () => {
             key={item.id}
             onDoubleClick={async () => {
               if (item.type === "file") {
-                handleOpenFile(item.id, item.title, item.hash);
+                if (item.hash) {
+                  handleOpenFile(item.id, item.title, item.hash);
+                }
               } else {
                 setCurrentFolderId(item.id);
               }
@@ -100,5 +104,3 @@ export const FileExplorer: React.FC = () => {
     </section>
   );
 };
-
-// https://hastebin.com/share/ozacojutah.typescript
