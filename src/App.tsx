@@ -1,7 +1,6 @@
 import { useState } from "react";
 import "./App.css";
 import Header from "./components/Header";
-import Toolbar from "./components/Toolbar";
 import type { MenuPosition } from "./components/ContextMenu";
 import ContextMenu from "./components/ContextMenu";
 import { VscNewFile } from "react-icons/vsc";
@@ -19,19 +18,28 @@ function App() {
   };
 
   const menuItems = [
-    {icon:<VscNewFile className="size-4"/> , label: "New File", action: () => alert("Edit clicked!") },
-    {icon:<VscNewFile className="size-4"/> , label: "Duplicate", action: () => alert("Duplicate clicked!") },
-    {icon:<RiDeleteBinLine className="size-4"/> , label: "Delete", action: () => alert("Delete clicked!") },
+    {
+      icon: <VscNewFile className="size-4" />,
+      label: "New File",
+      action: () => alert("Edit clicked!"),
+    },
+    {
+      icon: <VscNewFile className="size-4" />,
+      label: "Duplicate",
+      action: () => alert("Duplicate clicked!"),
+    },
+    {
+      icon: <RiDeleteBinLine className="size-4" />,
+      label: "Delete",
+      action: () => alert("Delete clicked!"),
+    },
   ];
   return (
     <>
       <Header />
-      <Toolbar />
-      <section
-        onContextMenu={handleContextMenu}
-        className="w-screen h-[90vh]">
-          <FileExplorer/>
-        </section>
+      <section onContextMenu={handleContextMenu} className="w-screen h-[90vh]">
+        <FileExplorer />
+      </section>
       <ContextMenu
         position={menuPosition}
         onClose={() => setMenuPosition(null)}
