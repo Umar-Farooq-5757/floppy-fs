@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IoMdClose } from "react-icons/io";
 import { createFile } from "../db/fileOperations";
 import toast from "react-hot-toast";
@@ -10,6 +10,7 @@ interface NewFileProps {
 
 const NewFile = ({ onClose, currentFolderId }: NewFileProps) => {
   const [newFilename, setNewFilename] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const handleCreateFile = async () => {
     if (newFilename) {
       await createFile(currentFolderId, newFilename, "");
@@ -18,13 +19,16 @@ const NewFile = ({ onClose, currentFolderId }: NewFileProps) => {
       toast.error("File name cannot be empty");
     }
   };
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
   return (
     <div
       onClick={onClose}
       className="bg-black/30 fixed inset-0 flex items-center justify-center">
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-sm overflow-hidden shadow-sm flex flex-col w-1/4">
+        className="bg-white rounded-sm overflow-hidden shadow-sm flex flex-col w-9/10 sm:w-1/2 md:w-1/3 lg:w-1/4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 pl-2">
             <p className="text-sm">New File</p>
@@ -42,6 +46,7 @@ const NewFile = ({ onClose, currentFolderId }: NewFileProps) => {
         <div className="py-2 space-y-2 px-3">
           <p>Enter file name:</p>
           <input
+            ref={inputRef}
             className="bg-black/8 w-full border-b-2 border-transparent focus:border-blue-500 outline-none px-1 py-0.5"
             type="text"
             value={newFilename}

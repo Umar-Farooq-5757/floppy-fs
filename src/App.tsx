@@ -4,6 +4,7 @@ import Header from "./components/Header";
 import type { MenuPosition } from "./components/ContextMenu";
 import ContextMenu from "./components/ContextMenu";
 import FileExplorer from "./components/FileExplorer";
+import { Toaster } from "react-hot-toast";
 
 function App() {
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
@@ -24,6 +25,7 @@ function App() {
         position={menuPosition}
         onClose={() => setMenuPosition(null)}
       />
+      <Toaster position="top-right" reverseOrder={false} />
     </>
   );
 }

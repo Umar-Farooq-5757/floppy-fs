@@ -1,24 +1,86 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import React, { useState } from "react";
 import { db } from "../db/db";
-import {
-  IoArrowBackOutline,
-  IoDocumentTextOutline,
-  IoFolderOutline,
-} from "react-icons/io5";
+import { IoArrowBackOutline } from "react-icons/io5";
 import { getFileContentByHash } from "../db/fileOperations";
 import { VscNewFile, VscNewFolder } from "react-icons/vsc";
 import Notepad from "./Notepad";
 import NewFile from "./NewFile";
 import { useAppContext } from "../context/AppContext";
-import { Toaster } from "react-hot-toast";
 import NewFolder from "./NewFolder";
+import { IoIosSearch } from "react-icons/io";
+import { FaAngleRight } from "react-icons/fa";
 
 export interface ActiveFile {
   id: string;
   title: string;
   content: string;
 }
+
+interface ToolbarProps {
+  searchValue: string;
+  setSearchValue: (value: string) => void;
+  currentFolder: any;
+  setCurrentFolderId: (id: string | null) => void;
+  setIsNewFileModalOpen: (isOpen: boolean) => void;
+  setIsNewFolderModalOpen: (isOpen: boolean) => void;
+}
+
+const Toolbar: React.FC<ToolbarProps> = ({
+  searchValue,
+  setSearchValue,
+  currentFolder,
+  setCurrentFolderId,
+  setIsNewFileModalOpen,
+  setIsNewFolderModalOpen,
+}) => {
+  const [breadCrumb] = useState(["Home", "Docs", "documents"]);
+
+  return (
+    <>
+      <section className="px-3 py-2 bg-black/4 border border-black/4 flex">
+        <div
+          onClick={() => setIsNewFileModalOpen(true)}
+          className="flex items-center gap-2 hover:bg-black/4 w-fit py-1 px-2 cursor-default rounded-xs">
+          <VscNewFile />
+          <p className="text-sm">New File</p>
+        </div>
+        <div
+          onClick={() => setIsNewFolderModalOpen(true)}
+          className="flex items-center gap-2 hover:bg-black/4 w-fit py-1 px-2 cursor-default rounded-xs">
+          <VscNewFolder />
+          <p className="text-sm">New Folder</p>
+        </div>
+      </section>
+      <section className="px-3 py-2 flex gap-3">
+        <button
+          onClick={() => setCurrentFolderId(currentFolder?.parentId ?? null)}
+          className="hover:bg-black/10 px-2 rounded-xs">
+          <IoArrowBackOutline />
+        </button>
+        {/* Breadcrumb */}
+        <div className="flex border border-black/25 py-1 px-2 grow">
+          {breadCrumb.map((item, idx) => (
+            <div key={idx} className="flex items-center">
+              <span>{item}</span>
+              <FaAngleRight className="mr-1.5 opacity-70" />
+            </div>
+          ))}
+        </div>
+        <div className="border border-black/25 flex items-center gap-2 py-1 px-1">
+          <IoIosSearch />
+          <input
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            className="outline-none"
+            type="text"
+            placeholder="Search..."
+          />
+        </div>
+      </section>
+    </>
+  );
+};
 
 export const FileExplorer: React.FC = () => {
   const {
@@ -27,8 +89,10 @@ export const FileExplorer: React.FC = () => {
     isNewFolderModalOpen,
     setIsNewFolderModalOpen,
   } = useAppContext();
+
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [activeFile, setActiveFile] = useState<ActiveFile | null>(null);
+  const [searchValue, setSearchValue] = useState("");
 
   const currentItems = useLiveQuery(() => {
     if (currentFolderId === null) {
@@ -37,6 +101,10 @@ export const FileExplorer: React.FC = () => {
       return db.nodes.where("parentId").equals(currentFolderId).toArray();
     }
   }, [currentFolderId]);
+
+  const filteredItems = currentItems?.filter((item) =>
+    item.title.toLowerCase().includes(searchValue.toLowerCase()),
+  );
 
   const currentFolder = useLiveQuery(
     () => (currentFolderId ? db.nodes.get(currentFolderId) : undefined),
@@ -57,35 +125,18 @@ export const FileExplorer: React.FC = () => {
     });
   };
 
-  const Toolbar = () => {
-    return (
-      <section className="px-3 py-2 bg-black/4 border border-black/10 flex">
-        <button
-          onClick={() => setCurrentFolderId(currentFolder?.parentId ?? null)}
-          className="opacity-60 hover:opacity-100">
-          <IoArrowBackOutline />
-        </button>
-        <div
-          onClick={() => setIsNewFileModalOpen(true)}
-          className="flex items-center gap-2 hover:bg-black/10 w-fit py-1 px-2 cursor-default rounded-xs">
-          <VscNewFile />
-          <p className="text-sm">New File</p>
-        </div>
-        <div
-          onClick={() => setIsNewFolderModalOpen(true)}
-          className="flex items-center gap-2 hover:bg-black/10 w-fit py-1 px-2 cursor-default rounded-xs">
-          <VscNewFolder />
-          <p className="text-sm">New Folder</p>
-        </div>
-      </section>
-    );
-  };
-
   return (
     <section>
-      <Toolbar />
-      <div className="flex px-5 py-5 select-none">
-        {currentItems?.map((item) => (
+      <Toolbar
+        searchValue={searchValue}
+        setSearchValue={setSearchValue}
+        currentFolder={currentFolder}
+        setCurrentFolderId={setCurrentFolderId}
+        setIsNewFileModalOpen={setIsNewFileModalOpen}
+        setIsNewFolderModalOpen={setIsNewFolderModalOpen}
+      />
+      <div className="flex px-5 py-5 select-none flex-wrap">
+        {filteredItems?.map((item) => (
           <div
             key={item.id}
             onDoubleClick={async () => {
@@ -97,11 +148,19 @@ export const FileExplorer: React.FC = () => {
                 setCurrentFolderId(item.id);
               }
             }}
-            className="flex flex-col items-center text-sm hover:bg-black/10 cursor-default p-2 px-5 rounded-sm">
+            className="flex flex-col items-center text-sm hover:bg-black/4 cursor-default p-2 px-5 rounded-sm">
             {item.type === "folder" ? (
-              <IoFolderOutline size={44} color="#f2a900" />
+              <img
+                className="size-20"
+                src="/img/folder.png"
+                alt="folder icon"
+              />
             ) : (
-              <IoDocumentTextOutline size={44} />
+              <img
+                className="size-20"
+                src="/img/textfile.png"
+                alt="text file icon"
+              />
             )}
             {item.title}
           </div>
@@ -109,6 +168,7 @@ export const FileExplorer: React.FC = () => {
       </div>
       {activeFile && (
         <Notepad
+          id={activeFile.id}
           title={activeFile.title}
           text={activeFile.content}
           setActiveFile={setActiveFile}
@@ -126,11 +186,9 @@ export const FileExplorer: React.FC = () => {
           currentFolderId={currentFolderId}
         />
       )}
-      <Toaster position="top-right" reverseOrder={false} />
+      
     </section>
   );
 };
 
 export default FileExplorer;
-
-// https://hastebin.com/share/ozacojutah.typescript
