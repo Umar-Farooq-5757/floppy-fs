@@ -29,9 +29,7 @@ interface AppContextType {
   closeMenu: () => void;
   activeFile: ActiveFile | null;
   setActiveFile: React.Dispatch<React.SetStateAction<ActiveFile | null>>;
-  handleOpenFile: (
-    fileId: string,
-  ) => Promise<void>;
+  handleOpenFile: (fileId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -44,10 +42,9 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({
   const [activeMenu, setActiveMenu] = useState<ActiveMenu | null>(null);
   const [activeFile, setActiveFile] = useState<ActiveFile | null>(null);
 
-  const handleOpenFile = async (
-    fileId: string,
-  ) => {
-    const fileData = await db.nodes.get(fileId)
+  const handleOpenFile = async (fileId: string) => {
+    const fileData = await db.nodes.get(fileId);
+    if (!fileData || !fileData.hash) return;
     const content = await getFileContentByHash(fileData?.hash);
     setActiveFile({
       id: fileId,

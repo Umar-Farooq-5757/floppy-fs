@@ -35,12 +35,20 @@ function App() {
     {
       icon: <FiEdit3 className="size-4" />,
       label: "Edit",
-      action: async () => await handleOpenFile(activeMenu.targetId),
+      action: async () => {
+        if (activeMenu?.targetId) {
+          await handleOpenFile(activeMenu.targetId);
+        }
+      },
     },
     {
       icon: <RiDeleteBinLine className="size-4" />,
       label: "Delete",
-      action: async () => await deleteNode(activeMenu?.targetId),
+      action: async () => {
+        if (activeMenu?.targetId) {
+          await deleteNode(activeMenu.targetId);
+        }
+      },
     },
   ];
 

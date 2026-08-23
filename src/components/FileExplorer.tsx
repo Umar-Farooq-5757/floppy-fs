@@ -96,7 +96,7 @@ export const FileExplorer: React.FC = () => {
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState("");
-  const [breadCrumb, setBreadCrumb] = useState([
+  const [breadCrumb, setBreadCrumb] = useState<BreadCrumbItem[]>([
     { folderName: "Home", folderId: null },
   ]);
 
@@ -126,7 +126,7 @@ export const FileExplorer: React.FC = () => {
       const path: BreadCrumbItem[] = [];
       let currentId: string | null = currentFolderId;
       while (currentId !== null) {
-        const folder = await db.nodes.get(currentId);
+        const folder:any = await db.nodes.get(currentId);
         if (!folder) break;
         path.unshift({
           folderName: folder.title,
