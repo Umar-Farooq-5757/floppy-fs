@@ -1,38 +1,21 @@
 import { useEffect, useRef } from "react";
-import { useAppContext } from "../context/AppContext";
-import { VscNewFile } from "react-icons/vsc";
-import { RiDeleteBinLine } from "react-icons/ri";
 
 export interface MenuPosition {
   x: number;
   y: number;
 }
-
+export interface MenuItem {
+  icon: React.ReactNode;
+  label: string;
+  action: () => void;
+}
 interface ContextMenuProps {
   position: MenuPosition | null;
   onClose: () => void;
+  menuItems: MenuItem[];
 }
 
-const ContextMenu = ({ position, onClose }: ContextMenuProps) => {
-  const {setIsNewFileModalOpen}=useAppContext()
-  
-  const menuItems = [
-    {
-      icon: <VscNewFile className="size-4" />,
-      label: "New File",
-      action: () => setIsNewFileModalOpen(true),
-    },
-    {
-      icon: <VscNewFile className="size-4" />,
-      label: "Duplicate",
-      action: () => alert("Duplicate clicked!"),
-    },
-    {
-      icon: <RiDeleteBinLine className="size-4" />,
-      label: "Delete",
-      action: () => alert("Delete clicked!"),
-    },
-  ];
+const ContextMenu = ({ position, onClose, menuItems }: ContextMenuProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,7 +50,7 @@ const ContextMenu = ({ position, onClose }: ContextMenuProps) => {
     <div
       ref={menuRef}
       style={{ top: `${position.y}px`, left: `${position.x}px` }}
-      className="fixed z-50 min-w-60 rounded-lg border border-slate-200 bg-black/2 shadow-xs py-1 px-2 backdrop-blur-md transition-all">
+      className="fixed z-50 min-w-60 rounded-lg border border-slate-300 bg-white shadow-md py-1 px-2 transition-all">
       {menuItems.map((item, index) => (
         <button
           key={index}
@@ -75,7 +58,7 @@ const ContextMenu = ({ position, onClose }: ContextMenuProps) => {
             item.action();
             onClose();
           }}
-          className={`flex hover:bg-black/4 opacity-85 w-full items-center gap-2 rounded-sm px-3 py-2 text-sm font-medium transition-all`}>
+          className={`flex hover:bg-black/4 border-l-3 border-white hover:border-blue-500 opacity-85 w-full items-center gap-2 rounded-r-sm px-2 py-2 text-sm font-medium`}>
           {item.icon}
           <p>{item.label}</p>
         </button>

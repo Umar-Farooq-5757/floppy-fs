@@ -120,7 +120,7 @@ export const updateFileContent = async (id: string, newContent: string) => {
 // DELETE Operation (Recursive + Hash Cleanup)
 // ----------------------------------------------------
 
-export async function deleteNode(id: string) {
+export const deleteNode = async (id: string) => {
   await db.transaction("rw", [db.nodes, db.contents], async () => {
     const node = await db.nodes.get(id);
     if (!node) return;
@@ -145,4 +145,4 @@ export async function deleteNode(id: string) {
     // Delete the metadata node
     await db.nodes.delete(id);
   });
-}
+};

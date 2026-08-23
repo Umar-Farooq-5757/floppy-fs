@@ -1,8 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { db } from "../db/db";
 import { IoArrowBackOutline } from "react-icons/io5";
-import { getFileContentByHash } from "../db/fileOperations";
 import { VscNewFile, VscNewFolder } from "react-icons/vsc";
 import Notepad from "./Notepad";
 import NewFile from "./NewFile";
@@ -11,12 +10,10 @@ import NewFolder from "./NewFolder";
 import { IoIosSearch } from "react-icons/io";
 import { FaAngleRight } from "react-icons/fa";
 
-export interface ActiveFile {
-  id: string;
-  title: string;
-  content: string;
+export interface BreadCrumbItem {
+  folderName: string;
+  folderId: string | null;
 }
-
 interface ToolbarProps {
   searchValue: string;
   setSearchValue: (value: string) => void;
@@ -24,6 +21,7 @@ interface ToolbarProps {
   setCurrentFolderId: (id: string | null) => void;
   setIsNewFileModalOpen: (isOpen: boolean) => void;
   setIsNewFolderModalOpen: (isOpen: boolean) => void;
+  breadCrumb: BreadCrumbItem[];
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -33,9 +31,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
   setCurrentFolderId,
   setIsNewFileModalOpen,
   setIsNewFolderModalOpen,
+  breadCrumb,
 }) => {
-  const [breadCrumb] = useState(["Home", "Docs", "documents"]);
-
   return (
     <>
       <section className="px-3 py-2 bg-black/4 border border-black/4 flex">
@@ -59,11 +56,14 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <IoArrowBackOutline />
         </button>
         {/* Breadcrumb */}
-        <div className="flex border border-black/25 py-1 px-2 grow">
+        <div className="flex border border-black/25 py-1 px-2 grow cursor-default">
           {breadCrumb.map((item, idx) => (
-            <div key={idx} className="flex items-center">
-              <span>{item}</span>
-              <FaAngleRight className="mr-1.5 opacity-70" />
+            <div
+              onClick={() => setCurrentFolderId(item.folderId)}
+              key={idx}
+              className="flex items-center hover:bg-black/7 mx-0.5 px-0.5">
+              <span>{item.folderName}</span>
+              <FaAngleRight className="opacity-70" />
             </div>
           ))}
         </div>
@@ -88,11 +88,17 @@ export const FileExplorer: React.FC = () => {
     setIsNewFileModalOpen,
     isNewFolderModalOpen,
     setIsNewFolderModalOpen,
+    openNodeMenu,
+    activeFile,
+    setActiveFile,
+    handleOpenFile,
   } = useAppContext();
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [activeFile, setActiveFile] = useState<ActiveFile | null>(null);
   const [searchValue, setSearchValue] = useState("");
+  const [breadCrumb, setBreadCrumb] = useState([
+    { folderName: "Home", folderId: null },
+  ]);
 
   const currentItems = useLiveQuery(() => {
     if (currentFolderId === null) {
@@ -111,19 +117,28 @@ export const FileExplorer: React.FC = () => {
     [currentFolderId],
   );
 
-  const handleOpenFile = async (
-    fileId: string,
-    title: string,
-    hash: string,
-  ) => {
-    if (!hash) return;
-    const content = await getFileContentByHash(hash);
-    setActiveFile({
-      id: fileId,
-      title: title,
-      content: content ?? "",
-    });
-  };
+  useEffect(() => {
+    const updateBreadcrumb = async () => {
+      if (!currentFolderId) {
+        setBreadCrumb([{ folderName: "Home", folderId: null }]);
+        return;
+      }
+      const path: BreadCrumbItem[] = [];
+      let currentId: string | null = currentFolderId;
+      while (currentId !== null) {
+        const folder = await db.nodes.get(currentId);
+        if (!folder) break;
+        path.unshift({
+          folderName: folder.title,
+          folderId: folder.id,
+        });
+        currentId = folder.parentId;
+      }
+      setBreadCrumb([{ folderName: "Home", folderId: null }, ...path]);
+    };
+
+    updateBreadcrumb();
+  }, [currentFolderId]);
 
   return (
     <section>
@@ -134,15 +149,17 @@ export const FileExplorer: React.FC = () => {
         setCurrentFolderId={setCurrentFolderId}
         setIsNewFileModalOpen={setIsNewFileModalOpen}
         setIsNewFolderModalOpen={setIsNewFolderModalOpen}
+        breadCrumb={breadCrumb}
       />
       <div className="flex px-5 py-5 select-none flex-wrap">
         {filteredItems?.map((item) => (
           <div
             key={item.id}
+            onContextMenu={(e) => openNodeMenu(e, item.id)}
             onDoubleClick={async () => {
               if (item.type === "file") {
                 if (item.hash) {
-                  handleOpenFile(item.id, item.title, item.hash);
+                  handleOpenFile(item.id);
                 }
               } else {
                 setCurrentFolderId(item.id);
@@ -186,9 +203,12 @@ export const FileExplorer: React.FC = () => {
           currentFolderId={currentFolderId}
         />
       )}
-      
     </section>
   );
 };
 
 export default FileExplorer;
+
+/**
+ * I am building a react app where i want two custom context menus. one is the general context menu that should appear when user clicks anywhere on the page. and the other is item-specific context menu that should appear when user clicks on an item on the page. tell me how to handle this so that both menus don't collide
+ */

@@ -2,9 +2,9 @@ import { IoMdClose } from "react-icons/io";
 import { VscChromeMaximize } from "react-icons/vsc";
 import { FiMinimize } from "react-icons/fi";
 import React, { useState } from "react";
-import type { ActiveFile } from "./FileExplorer";
 import { updateFileContent } from "../db/fileOperations";
 import toast from "react-hot-toast";
+import type { ActiveFile } from "../context/AppContext";
 
 interface NotepadProps {
   id: string;
@@ -20,8 +20,8 @@ const Notepad: React.FC<NotepadProps> = ({
   setActiveFile,
 }) => {
   const [notepadSize, setNotepadSize] = useState({
-    height: "60%",
-    width: "60%",
+    height: "h-full sm:h-3/5",
+    width: "w-full sm:w-3/5",
   });
   const [notepadText, setNotepadText] = useState(text);
   const handleSaveFile = async () => {
@@ -34,8 +34,7 @@ const Notepad: React.FC<NotepadProps> = ({
       className="bg-black/30 fixed inset-0 flex items-center justify-center">
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ height: notepadSize.height, width: notepadSize.width }}
-        className="bg-white font-mono rounded-sm overflow-hidden shadow-sm flex flex-col">
+        className={`bg-white font-mono rounded-sm overflow-hidden shadow-sm transition-all flex flex-col ${notepadSize.height} ${notepadSize.width}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 pl-2">
             <img
@@ -47,13 +46,23 @@ const Notepad: React.FC<NotepadProps> = ({
           </div>
           <div className="flex">
             <button
-              onClick={() => setNotepadSize({ height: "60%", width: "60%" })}
+              onClick={() =>
+                setNotepadSize({
+                  height: "h-3/4 sm:h-3/5",
+                  width: "w-11/12 sm:w-3/5",
+                })
+              }
               title="minimize"
               className="hover:bg-black/7 py-2 px-4">
               <FiMinimize size={14} />
             </button>
             <button
-              onClick={() => setNotepadSize({ height: "100%", width: "100%" })}
+              onClick={() =>
+                setNotepadSize({
+                  height: "h-full sm:h-full",
+                  width: "w-full sm:w-full",
+                })
+              }
               title="maximize"
               className="hover:bg-black/7 py-2 px-4">
               <VscChromeMaximize size={14} />
@@ -68,7 +77,7 @@ const Notepad: React.FC<NotepadProps> = ({
         </div>
         <button
           onClick={handleSaveFile}
-          className="w-fit font-sans text-sm hover:bg-black/7 px-2">
+          className="w-fit font-sans text-sm hover:bg-black/7 px-2 py-1">
           Save
         </button>
         <div className="w-full h-0.5 bg-black/5"></div>
