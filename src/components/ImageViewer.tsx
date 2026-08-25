@@ -55,8 +55,9 @@ const ImageViewer = ({ title }: ImageViewerProps) => {
             </button>
             <button
               onClick={() => {
-                if (activeFile.objectUrl)
+                if (activeFile?.objectUrl) {
                   URL.revokeObjectURL(activeFile.objectUrl);
+                }
                 setActiveFile(null);
               }}
               title="close"
@@ -68,7 +69,7 @@ const ImageViewer = ({ title }: ImageViewerProps) => {
         <div className="w-full h-0.5 bg-black/5"></div>
         <div className="p-2">
           <img
-            src={activeFile.objectUrl}
+            src={activeFile?.objectUrl}
             alt="preview"
             className="object-contain"
           />
