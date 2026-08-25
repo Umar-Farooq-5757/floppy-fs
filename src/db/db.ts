@@ -6,13 +6,14 @@ export interface FileMetadata {
   parentId: string | null; // ID of parent folder (null = root directory)
   type: "file" | "folder";
   hash?: string; // Content hash (only present for files)
+  mimeType?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface FileContent {
   hash: string;
-  content: string;
+  content: string | Blob;
 }
 
 export class FileSystemDB extends Dexie {
@@ -25,7 +26,6 @@ export class FileSystemDB extends Dexie {
       // Primary Key: id
       // Indexes: parentId, title, hash, compound [parentId+title] for name lookups
       nodes: "id, parentId, title, hash, [parentId+title]",
-
       // Primary Key: hash
       contents: "hash",
     });

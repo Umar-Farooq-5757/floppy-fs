@@ -1,7 +1,7 @@
 import { IoMdClose } from "react-icons/io";
 import { VscChromeMaximize } from "react-icons/vsc";
 import { FiMinimize } from "react-icons/fi";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { updateFileContent } from "../db/fileOperations";
 import toast from "react-hot-toast";
 import type { ActiveFile } from "../context/AppContext";
@@ -9,14 +9,14 @@ import type { ActiveFile } from "../context/AppContext";
 interface NotepadProps {
   id: string;
   title: string;
-  text: string;
+  text?: string;
   setActiveFile: React.Dispatch<React.SetStateAction<ActiveFile | null>>;
 }
 
 const Notepad: React.FC<NotepadProps> = ({
   id,
   title,
-  text,
+  text = "",
   setActiveFile,
 }) => {
   const [notepadSize, setNotepadSize] = useState({
@@ -24,14 +24,20 @@ const Notepad: React.FC<NotepadProps> = ({
     width: "w-full sm:w-3/5",
   });
   const [notepadText, setNotepadText] = useState(text);
+
+  useEffect(() => {
+    setNotepadText(text);
+  }, [text, id]);
+
   const handleSaveFile = async () => {
     await updateFileContent(id, notepadText);
     toast.success("File saved successfully!");
   };
+
   return (
     <div
       onClick={() => setActiveFile(null)}
-      className="bg-black/30 fixed inset-0 flex items-center justify-center">
+      className="bg-black/30 fixed inset-0 flex items-center justify-center z-50">
       <div
         onClick={(e) => e.stopPropagation()}
         className={`bg-white font-mono rounded-sm overflow-hidden shadow-sm transition-all flex flex-col ${notepadSize.height} ${notepadSize.width}`}>
@@ -42,7 +48,7 @@ const Notepad: React.FC<NotepadProps> = ({
               src="/img/notepad.png"
               alt="Notepad Icon"
             />
-            <p className="text-sm">{title} - Notepad</p>
+            <p className="text-sm">{title} - Floppy Notepad</p>
           </div>
           <div className="flex">
             <button

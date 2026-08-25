@@ -31,10 +31,11 @@ function App() {
       action: () => setIsNewFolderModalOpen(true),
     },
   ];
+
   const nodeMenuItems: MenuItem[] = [
     {
       icon: <FiEdit3 className="size-4" />,
-      label: "Edit",
+      label: "Open / Edit",
       action: async () => {
         if (activeMenu?.targetId) {
           await handleOpenFile(activeMenu.targetId);

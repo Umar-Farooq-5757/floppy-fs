@@ -13,7 +13,7 @@ const NewFile = ({ onClose, currentFolderId }: NewFileProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const handleCreateFile = async () => {
     if (newFilename) {
-      await createFile(currentFolderId, newFilename, "");
+      await createFile(currentFolderId, newFilename+".txt", "");
       onClose();
     } else {
       toast.error("File name cannot be empty");

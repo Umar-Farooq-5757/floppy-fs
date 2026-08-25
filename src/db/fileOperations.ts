@@ -1,19 +1,58 @@
 import { db } from "./db";
 
 // Helper: Calculate SHA-256 hash for content deduplication
-export const calculateHash = async (text: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+export const calculateHash = async (data: string | Blob): Promise<string> => {
+  let arrayBuffer: ArrayBuffer;
+  if (typeof data === "string") {
+    arrayBuffer = new TextEncoder().encode(data).buffer;
+  } else {
+    arrayBuffer = await data.arrayBuffer();
+  }
+  const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
   return Array.from(new Uint8Array(hashBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 };
 
+// Helper: Infer MIME type from file extension
+export const getMimeType = (
+  fileName: string,
+  providedType?: string,
+): string => {
+  if (providedType && providedType !== "") return providedType;
+
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "mp4":
+      return "video/mp4";
+    case "webm":
+      return "video/webm";
+    case "pdf":
+      return "application/pdf";
+    case "doc":
+      return "application/msword";
+    case "docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case "txt":
+      return "text/plain";
+    default:
+      return "application/octet-stream";
+  }
+};
+
 // ----------------------------------------------------
 // CREATE Operations
 // ----------------------------------------------------
-export const createFolder = async (parentId: string | null, title: string) => {
+export async function createFolder(parentId: string | null, title: string) {
   const id = crypto.randomUUID();
   const now = new Date();
 
@@ -26,16 +65,21 @@ export const createFolder = async (parentId: string | null, title: string) => {
     updatedAt: now,
   });
   return id;
-};
+}
 
 export const createFile = async (
   parentId: string | null,
   title: string,
-  content: string = "",
+  content: string | Blob = "",
+  overrideMimeType?: string,
 ) => {
   const id = crypto.randomUUID();
   const hash = await calculateHash(content);
   const now = new Date();
+  const mimeType = getMimeType(
+    title,
+    overrideMimeType || (content instanceof Blob ? content.type : "text/plain"),
+  );
 
   // Dexie transaction ensures atomic write across both tables
   await db.transaction("rw", [db.nodes, db.contents], async () => {
@@ -49,6 +93,7 @@ export const createFile = async (
       title,
       type: "file",
       hash,
+      mimeType,
       createdAt: now,
       updatedAt: now,
     });
@@ -63,7 +108,7 @@ export const createFile = async (
 
 export const getFileContentByHash = async (
   hash: string,
-): Promise<string | undefined> => {
+): Promise<string | undefined | Blob> => {
   const record = await db.contents.get(hash);
   return record?.content;
 };
@@ -126,13 +171,11 @@ export const deleteNode = async (id: string) => {
     if (!node) return;
 
     if (node.type === "folder") {
-      // Find all children and recursively delete them
       const children = await db.nodes.where("parentId").equals(id).toArray();
       for (const child of children) {
         await deleteNode(child.id);
       }
     } else if (node.type === "file" && node.hash) {
-      // Check if hash is referenced by any other file before removing
       const otherFiles = await db.nodes
         .where("hash")
         .equals(node.hash)
@@ -142,7 +185,6 @@ export const deleteNode = async (id: string) => {
       }
     }
 
-    // Delete the metadata node
     await db.nodes.delete(id);
   });
 };

@@ -5,7 +5,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { getFileContentByHash } from "../db/fileOperations";
-import { db } from "../db/db";
+import { db, type FileMetadata } from "../db/db";
 
 export interface ActiveMenu {
   type: "general" | "node";
@@ -13,11 +13,13 @@ export interface ActiveMenu {
   y: number;
   targetId?: string;
 }
+
 export interface ActiveFile {
-  id: string;
-  title: string;
-  content: string;
+  file: FileMetadata;
+  objectUrl?: string;
+  textContent?: string;
 }
+
 interface AppContextType {
   isNewFileModalOpen: boolean;
   setIsNewFileModalOpen: (isOpen: boolean) => void;
@@ -29,7 +31,7 @@ interface AppContextType {
   closeMenu: () => void;
   activeFile: ActiveFile | null;
   setActiveFile: React.Dispatch<React.SetStateAction<ActiveFile | null>>;
-  handleOpenFile: (fileId: string) => Promise<void>;
+  handleOpenFile: (target: FileMetadata | string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -42,15 +44,39 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({
   const [activeMenu, setActiveMenu] = useState<ActiveMenu | null>(null);
   const [activeFile, setActiveFile] = useState<ActiveFile | null>(null);
 
-  const handleOpenFile = async (fileId: string) => {
-    const fileData = await db.nodes.get(fileId);
-    if (!fileData || !fileData.hash) return;
-    const content = await getFileContentByHash(fileData?.hash);
-    setActiveFile({
-      id: fileId,
-      title: fileData.title,
-      content: content ?? "",
-    });
+  const handleOpenFile = async (target: FileMetadata | string) => {
+    let fileNode: FileMetadata | undefined;
+    if (typeof target === "string") {
+      fileNode = await db.nodes.get(target);
+    } else {
+      fileNode = target;
+    }
+    if (!fileNode || fileNode.type !== "file" || !fileNode.hash) return;
+    const rawContent = await getFileContentByHash(fileNode.hash);
+    if (rawContent === undefined || rawContent === null) return;
+
+    if (activeFile?.objectUrl) {
+      URL.revokeObjectURL(activeFile.objectUrl);
+    }
+    const isTextFile =
+      fileNode.mimeType?.startsWith("text/") ||
+      fileNode.mimeType === "application/json" ||
+      fileNode.title.endsWith(".txt") ||
+      fileNode.title.endsWith(".md") ||
+      fileNode.title.endsWith(".json") ||
+      typeof rawContent === "string";
+    if (isTextFile) {
+      let textContent = "";
+      if (typeof rawContent === "string") {
+        textContent = rawContent;
+      } else if (rawContent instanceof Blob) {
+        textContent = await rawContent.text();
+      }
+      setActiveFile({ file: fileNode, textContent });
+    } else if (rawContent instanceof Blob) {
+      const objectUrl = URL.createObjectURL(rawContent);
+      setActiveFile({ file: fileNode, objectUrl });
+    }
   };
 
   const openGeneralMenu = (e: React.MouseEvent) => {
