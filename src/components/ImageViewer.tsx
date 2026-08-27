@@ -26,7 +26,7 @@ const ImageViewer = ({ title }: ImageViewerProps) => {
             <img
               className="size-4.5"
               src="/img/imageviewer.png"
-              alt="Notepad Icon"
+              alt="Floppy Image Viewer"
             />
             <p className="text-sm">{title} - Floppy Image Viewer</p>
           </div>

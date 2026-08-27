@@ -4,31 +4,39 @@ import ContextMenu, { type MenuItem } from "./components/ContextMenu";
 import FileExplorer from "./components/FileExplorer";
 import { Toaster } from "react-hot-toast";
 import { useAppContext } from "./context/AppContext";
-import { VscNewFile, VscNewFolder } from "react-icons/vsc";
+import { VscNewFile, VscNewFolder, VscRename } from "react-icons/vsc";
 import { RiDeleteBinLine } from "react-icons/ri";
-import { deleteNode } from "./db/fileOperations";
 import { FiEdit3 } from "react-icons/fi";
+import { deleteNode } from "./db/fileOperations";
 
 function App() {
   const {
-    setIsNewFileModalOpen,
-    setIsNewFolderModalOpen,
+    setIsNewNodeModalOpen,
+    setIsRenameNodeModalOpen,
+    setRenameNodeId,
     activeMenu,
     openGeneralMenu,
     closeMenu,
     handleOpenFile,
+    setCreatingFileOrFolder,
   } = useAppContext();
 
   const generalMenuItems: MenuItem[] = [
     {
       icon: <VscNewFile className="size-4" />,
       label: "New File",
-      action: () => setIsNewFileModalOpen(true),
+      action: () => {
+        setCreatingFileOrFolder("file");
+        setIsNewNodeModalOpen(true);
+      },
     },
     {
       icon: <VscNewFolder className="size-4" />,
       label: "New Folder",
-      action: () => setIsNewFolderModalOpen(true),
+      action: () => {
+        setCreatingFileOrFolder("folder");
+        setIsNewNodeModalOpen(true);
+      },
     },
   ];
 
@@ -37,17 +45,37 @@ function App() {
       icon: <FiEdit3 className="size-4" />,
       label: "Open / Edit",
       action: async () => {
-        if (activeMenu?.targetId) {
-          await handleOpenFile(activeMenu.targetId);
+        const targetId = activeMenu?.targetId;
+        if (!targetId) {
+          return;
         }
+        await handleOpenFile(targetId);
+      },
+    },
+    {
+      icon: <VscRename className="size-4" />,
+      label: "Rename",
+      action: () => {
+        const targetId = activeMenu?.targetId;
+        if (!targetId) {
+          return;
+        }
+        setRenameNodeId(targetId);
+        setIsRenameNodeModalOpen(true);
       },
     },
     {
       icon: <RiDeleteBinLine className="size-4" />,
       label: "Delete",
       action: async () => {
-        if (activeMenu?.targetId) {
-          await deleteNode(activeMenu.targetId);
+        const targetId = activeMenu?.targetId;
+        if (!targetId) {
+          return;
+        }
+        try {
+          await deleteNode(targetId);
+        } catch (error) {
+          console.error("Failed to delete node:", error);
         }
       },
     },
@@ -62,13 +90,18 @@ function App() {
       <section onContextMenu={openGeneralMenu} className="w-screen h-[90vh]">
         <FileExplorer />
       </section>
-
       <ContextMenu
         menuItems={currentMenuItems}
-        position={activeMenu ? { x: activeMenu.x, y: activeMenu.y } : null}
+        position={
+          activeMenu
+            ? {
+                x: activeMenu.x,
+                y: activeMenu.y,
+              }
+            : null
+        }
         onClose={closeMenu}
       />
-
       <Toaster position="top-right" reverseOrder={false} />
     </>
   );

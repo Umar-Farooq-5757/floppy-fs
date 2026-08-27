@@ -3,9 +3,9 @@ import Dexie, { type Table } from "dexie";
 export interface FileMetadata {
   id: string;
   title: string;
-  parentId: string | null; // ID of parent folder (null = root directory)
+  parentId: string | null;
   type: "file" | "folder";
-  hash?: string; // Content hash (only present for files)
+  hash?: string;
   mimeType?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -23,10 +23,23 @@ export class FileSystemDB extends Dexie {
   constructor() {
     super("FloppyFileSystemDB");
     this.version(1).stores({
-      // Primary Key: id
-      // Indexes: parentId, title, hash, compound [parentId+title] for name lookups
+      /*
+       * Primary key:
+       *   id
+       *
+       * Indexed fields:
+       *   parentId
+       *   title
+       *   hash
+       *
+       * The compound index is kept for possible future use, but the
+       * file operations intentionally do not query it with parentId = null.
+       */
       nodes: "id, parentId, title, hash, [parentId+title]",
-      // Primary Key: hash
+      /*
+       * Primary key:
+       *   hash
+       */
       contents: "hash",
     });
   }

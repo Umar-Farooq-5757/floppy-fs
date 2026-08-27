@@ -24,14 +24,28 @@ const Notepad: React.FC<NotepadProps> = ({
     width: "w-full sm:w-3/5",
   });
   const [notepadText, setNotepadText] = useState(text);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setNotepadText(text);
   }, [text, id]);
 
   const handleSaveFile = async () => {
-    await updateFileContent(id, notepadText);
-    toast.success("File saved successfully!");
+    if (isSaving) {
+      return;
+    }
+    try {
+      setIsSaving(true);
+      await updateFileContent(id, notepadText);
+      toast.success("File saved successfully!");
+    } catch (error) {
+      console.error("Failed to save file:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to save file.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -82,9 +96,10 @@ const Notepad: React.FC<NotepadProps> = ({
           </div>
         </div>
         <button
-          onClick={handleSaveFile}
-          className="w-fit font-sans text-sm hover:bg-black/7 px-2 py-1">
-          Save
+          onClick={() => void handleSaveFile()}
+          disabled={isSaving}
+          className="w-fit font-sans text-sm hover:bg-black/7 px-2 py-1 disabled:opacity-50">
+          {isSaving ? "Saving..." : "Save"}
         </button>
         <div className="w-full h-0.5 bg-black/5"></div>
         <textarea

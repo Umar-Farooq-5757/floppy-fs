@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../db/db";
+import { db, type FileMetadata } from "../db/db";
 import { IoArrowBackOutline } from "react-icons/io5";
 import { VscNewFile, VscNewFolder } from "react-icons/vsc";
-import Notepad from "./Notepad";
-import NewFile from "./NewFile";
-import { useAppContext } from "../context/AppContext";
-import NewFolder from "./NewFolder";
 import { IoIosSearch } from "react-icons/io";
 import { FaAngleRight } from "react-icons/fa";
-import { createFile } from "../db/fileOperations";
 import { MdOutlineFileUpload } from "react-icons/md";
+import Notepad from "./Notepad";
 import ImageViewer from "./ImageViewer";
+import NewNodeModal from "./NewNodeModal";
+import RenameNodeModal from "./RenameNodeModal";
+import { createFile } from "../db/fileOperations";
+import { useAppContext } from "../context/AppContext";
 
 export interface BreadCrumbItem {
   folderName: string;
@@ -20,13 +20,15 @@ export interface BreadCrumbItem {
 
 interface ToolbarProps {
   searchValue: string;
-  setSearchValue: (value: string) => void;
+  setSearchValue: React.Dispatch<React.SetStateAction<string>>;
   currentFolder: any;
-  currentFolderId: string | null; // Fixed: allows null at root directory
-  setCurrentFolderId: (id: string | null) => void;
-  setIsNewFileModalOpen: (isOpen: boolean) => void;
-  setIsNewFolderModalOpen: (isOpen: boolean) => void;
+  currentFolderId: string | null;
+  setCurrentFolderId: React.Dispatch<React.SetStateAction<string | null>>;
+  setIsNewNodeModalOpen: (isOpen: boolean) => void;
   breadCrumb: BreadCrumbItem[];
+  setCreatingFileOrFolder: React.Dispatch<
+    React.SetStateAction<"file" | "folder">
+  >;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -35,34 +37,49 @@ const Toolbar: React.FC<ToolbarProps> = ({
   currentFolder,
   currentFolderId,
   setCurrentFolderId,
-  setIsNewFileModalOpen,
-  setIsNewFolderModalOpen,
+  setIsNewNodeModalOpen,
   breadCrumb,
+  setCreatingFileOrFolder,
 }) => {
   return (
     <>
       <section className="px-3 py-2 bg-black/4 border border-black/4 flex items-center gap-2">
         <div
-          onClick={() => setIsNewFileModalOpen(true)}
+          onClick={() => {
+            setCreatingFileOrFolder("file");
+            setIsNewNodeModalOpen(true);
+          }}
           className="flex items-center cursor-default gap-2 hover:bg-black/4 w-fit py-1 px-2 rounded-xs">
           <VscNewFile />
           <p className="text-sm">New File</p>
         </div>
         <div
-          onClick={() => setIsNewFolderModalOpen(true)}
+          onClick={() => {
+            setCreatingFileOrFolder("folder");
+            setIsNewNodeModalOpen(true);
+          }}
           className="flex items-center cursor-default gap-2 hover:bg-black/4 w-fit py-1 px-2 rounded-xs">
           <VscNewFolder />
           <p className="text-sm">New Folder</p>
         </div>
         <label className="flex items-center cursor-default gap-2 hover:bg-black/4 w-fit py-1 px-2 rounded-xs">
-          <MdOutlineFileUpload /> <p className="text-sm">Import File (image, video)</p>
+          <MdOutlineFileUpload />
+          <p className="text-sm">Import File (image, video)</p>
           <input
             type="file"
             style={{ display: "none" }}
             onChange={async (e) => {
               const file = e.target.files?.[0];
-              if (file)
+              if (!file) {
+                return;
+              }
+              try {
                 await createFile(currentFolderId, file.name, file, file.type);
+              } catch (error) {
+                console.error("Failed to import file:", error);
+              } finally {
+                e.target.value = "";
+              }
             }}
           />
         </label>
@@ -70,18 +87,18 @@ const Toolbar: React.FC<ToolbarProps> = ({
       <section className="px-3 py-2 flex gap-3">
         <button
           onClick={() => setCurrentFolderId(currentFolder?.parentId ?? null)}
-          className="hover:bg-black/10 px-2 rounded-xs">
+          disabled={currentFolderId === null}
+          className="hover:bg-black/10 px-2 rounded-xs disabled:opacity-40">
           <IoArrowBackOutline />
         </button>
-        {/* Breadcrumb */}
-        <div className="flex border border-black/25 py-1 px-2 grow cursor-default">
+        <div className="flex border border-black/25 py-1 px-2 grow cursor-default overflow-hidden">
           {breadCrumb.map((item, idx) => (
             <div
               onClick={() => setCurrentFolderId(item.folderId)}
-              key={idx}
-              className="flex items-center hover:bg-black/7 mx-0.5 px-0.5">
-              <span>{item.folderName}</span>
-              <FaAngleRight className="opacity-70" />
+              key={`${item.folderId ?? "root"}-${idx}`}
+              className="flex items-center hover:bg-black/7 mx-0.5 px-0.5 min-w-0">
+              <span className="truncate">{item.folderName}</span>
+              <FaAngleRight className="opacity-70 shrink-0" />
             </div>
           ))}
         </div>
@@ -102,28 +119,36 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
 export const FileExplorer: React.FC = () => {
   const {
-    isNewFileModalOpen,
-    setIsNewFileModalOpen,
-    isNewFolderModalOpen,
-    setIsNewFolderModalOpen,
+    isNewNodeModalOpen,
+    setIsNewNodeModalOpen,
+    isRenameNodeModalOpen,
+    setIsRenameNodeModalOpen,
+    renameNodeId,
+    setRenameNodeId,
     openNodeMenu,
     activeFile,
     setActiveFile,
     handleOpenFile,
+    creatingFileOrFolder,
+    setCreatingFileOrFolder,
   } = useAppContext();
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+
   const [searchValue, setSearchValue] = useState("");
+
   const [breadCrumb, setBreadCrumb] = useState<BreadCrumbItem[]>([
-    { folderName: "Home", folderId: null },
+    {
+      folderName: "Home",
+      folderId: null,
+    },
   ]);
 
   const currentItems = useLiveQuery(() => {
     if (currentFolderId === null) {
       return db.nodes.filter((node) => node.parentId === null).toArray();
-    } else {
-      return db.nodes.where("parentId").equals(currentFolderId).toArray();
     }
+    return db.nodes.where("parentId").equals(currentFolderId).toArray();
   }, [currentFolderId]);
 
   const filteredItems = currentItems?.filter((item) =>
@@ -138,40 +163,66 @@ export const FileExplorer: React.FC = () => {
   useEffect(() => {
     const updateBreadcrumb = async () => {
       if (!currentFolderId) {
-        setBreadCrumb([{ folderName: "Home", folderId: null }]);
+        setBreadCrumb([
+          {
+            folderName: "Home",
+            folderId: null,
+          },
+        ]);
         return;
       }
       const path: BreadCrumbItem[] = [];
       let currentId: string | null = currentFolderId;
       while (currentId !== null) {
-        const folder: any = await db.nodes.get(currentId);
-        if (!folder) break;
+        const folder: FileMetadata | undefined = await db.nodes.get(currentId);
+        if (!folder) {
+          break;
+        }
         path.unshift({
           folderName: folder.title,
           folderId: folder.id,
         });
         currentId = folder.parentId;
       }
-      setBreadCrumb([{ folderName: "Home", folderId: null }, ...path]);
+      setBreadCrumb([
+        {
+          folderName: "Home",
+          folderId: null,
+        },
+        ...path,
+      ]);
     };
-
-    updateBreadcrumb();
+    void updateBreadcrumb();
   }, [currentFolderId]);
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files);
-
     for (const file of files) {
-      await createFile(currentFolderId, file.name, file, file.type);
+      try {
+        await createFile(currentFolderId, file.name, file, file.type);
+      } catch (error) {
+        console.error(`Failed to import ${file.name}:`, error);
+      }
     }
   };
 
   const renderIcon = (mimeType?: string) => {
-    if (!mimeType) return "/img/anonymous.png";
-    if (mimeType.startsWith("image/")) return "/img/image.png";
-    if (mimeType.startsWith("video/")) return "/img/video.png";
-    if (mimeType === "text/plain") return "/img/textfile.png";
+    if (!mimeType) {
+      return "/img/anonymous.png";
+    }
+    if (mimeType.startsWith("image/")) {
+      return "/img/image.png";
+    }
+    if (mimeType.startsWith("video/")) {
+      return "/img/video.png";
+    }
+    if (mimeType === "text/plain") {
+      return "/img/textfile.png";
+    }
+    if (mimeType === "application/pdf") {
+      return "/img/pdf.png";
+    }
     return "/img/anonymous.png";
   };
 
@@ -183,9 +234,9 @@ export const FileExplorer: React.FC = () => {
         currentFolder={currentFolder}
         currentFolderId={currentFolderId}
         setCurrentFolderId={setCurrentFolderId}
-        setIsNewFileModalOpen={setIsNewFileModalOpen}
-        setIsNewFolderModalOpen={setIsNewFolderModalOpen}
+        setIsNewNodeModalOpen={setIsNewNodeModalOpen}
         breadCrumb={breadCrumb}
+        setCreatingFileOrFolder={setCreatingFileOrFolder}
       />
       <div className="flex px-5 py-5 select-none flex-wrap gap-4">
         {filteredItems?.map((item) => (
@@ -193,9 +244,11 @@ export const FileExplorer: React.FC = () => {
             key={item.id}
             onContextMenu={(e) => openNodeMenu(e, item.id)}
             onDoubleClick={async () => {
-              console.log(item);
-              if (item.type === "folder") setCurrentFolderId(item.id);
-              else handleOpenFile(item);
+              if (item.type === "folder") {
+                setCurrentFolderId(item.id);
+              } else {
+                await handleOpenFile(item);
+              }
             }}
             className="flex flex-col items-center text-sm hover:bg-black/5 p-2 rounded-sm text-center">
             {item.type === "folder" ? (
@@ -215,8 +268,6 @@ export const FileExplorer: React.FC = () => {
           </div>
         ))}
       </div>
-
-      {/* Text File Editor */}
       {activeFile && activeFile.textContent !== undefined && (
         <Notepad
           key={activeFile.file.id}
@@ -226,35 +277,34 @@ export const FileExplorer: React.FC = () => {
           setActiveFile={setActiveFile}
         />
       )}
-
-      {/* Image / Media Preview Modal */}
       {activeFile && activeFile.objectUrl && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          {/* <div className="bg-white p-4 rounded-md max-w-2xl max-h-[80vh] flex flex-col gap-2"> */}
-            {activeFile.file.mimeType?.startsWith("image/") && (
-              <ImageViewer title={activeFile.file.title} />
-            )}
-            {activeFile.file.mimeType?.startsWith("video/") && (
-              <video
-                src={activeFile.objectUrl}
-                controls
-                className="max-h-[60vh]"
-              />
-            )}
-          {/* </div> */}
+          {activeFile.file.mimeType?.startsWith("image/") && (
+            <ImageViewer title={activeFile.file.title} />
+          )}
+          {activeFile.file.mimeType?.startsWith("video/") && (
+            <video
+              src={activeFile.objectUrl}
+              controls
+              className="max-h-[60vh]"
+            />
+          )}
         </div>
       )}
-
-      {isNewFileModalOpen && (
-        <NewFile
-          onClose={() => setIsNewFileModalOpen(false)}
+      {isNewNodeModalOpen && (
+        <NewNodeModal
+          creatingFileOrFolder={creatingFileOrFolder}
+          onClose={() => setIsNewNodeModalOpen(false)}
           currentFolderId={currentFolderId}
         />
       )}
-      {isNewFolderModalOpen && (
-        <NewFolder
-          onClose={() => setIsNewFolderModalOpen(false)}
-          currentFolderId={currentFolderId}
+      {isRenameNodeModalOpen && renameNodeId && (
+        <RenameNodeModal
+          nodeId={renameNodeId}
+          onClose={() => {
+            setIsRenameNodeModalOpen(false);
+            setRenameNodeId(null);
+          }}
         />
       )}
     </section>
