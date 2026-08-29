@@ -51,7 +51,7 @@ interface AppContextType {
   breadCrumb: BreadCrumbItem[];
   setBreadCrumb: React.Dispatch<React.SetStateAction<BreadCrumbItem[]>>;
   currentFolderId: string | null;
-  setCurrentFolderId: React.Dispatch<React.SetStateAction<string>>;
+  setCurrentFolderId: React.Dispatch<React.SetStateAction<string | null>>;
   currentItems: FileMetadata[] | undefined;
   currentFolder: any;
 }

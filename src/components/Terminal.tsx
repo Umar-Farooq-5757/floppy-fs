@@ -9,12 +9,8 @@ interface TerminalOutputs {
 }
 
 const Terminal = () => {
-  const {
-    currentItems,
-    breadCrumb,
-    currentFolder,
-    setCurrentFolderId,
-  } = useAppContext();
+  const { currentItems, breadCrumb, currentFolder, setCurrentFolderId } =
+    useAppContext();
   const [command, setCommand] = useState<string>("");
   const [terminalOutputs, setTerminalOutputs] = useState<TerminalOutputs[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -91,7 +87,7 @@ const Terminal = () => {
       updateTerminalOutputs(
         trimmedCommand,
         <div className="flex flex-col">
-          {currentItems.map((item, idx) => (
+          {currentItems?.map((item, idx) => (
             <span
               key={idx}
               className={`${item.type === "folder" && "underline font-semibold text-emerald-400"}`}>
@@ -106,7 +102,7 @@ const Terminal = () => {
         setCurrentFolderId(currentFolder?.parentId ?? null);
         updateTerminalOutputs(trimmedCommand, <div />);
       } else {
-        const matchingFolder = currentItems.filter(
+        const matchingFolder = currentItems?.filter(
           (item) => item.type === "folder" && folderName === item.title,
         )[0];
         if (!matchingFolder?.id) {
@@ -115,13 +111,13 @@ const Terminal = () => {
             <div>Cannot find folder named "{folderName}"</div>,
           );
         } else {
-          setCurrentFolderId(matchingFolder?.id);
+          setCurrentFolderId(matchingFolder.id);
           updateTerminalOutputs(trimmedCommand, <div />);
         }
       }
     } else if (trimmedCommand.startsWith("cat ")) {
       const fileName = trimmedCommand.split(" ").slice(1).join(" ");
-      const matchingFile = currentItems.filter(
+      const matchingFile = currentItems?.filter(
         (item) => item.type === "file" && fileName === item.title,
       )[0];
       if (!matchingFile) {
@@ -131,7 +127,8 @@ const Terminal = () => {
         );
       } else if (matchingFile.mimeType === "text/plain") {
         (async () => {
-          const rawContent = await getFileContentByHash(matchingFile?.hash);
+          if (!matchingFile.hash) return;
+          const rawContent = await getFileContentByHash(matchingFile.hash);
           let textContent = "";
           if (typeof rawContent === "string") {
             textContent = rawContent;
@@ -139,17 +136,18 @@ const Terminal = () => {
           updateTerminalOutputs(trimmedCommand, <div>{textContent}</div>);
         })();
       } else if (
-        matchingFile.mimeType.startsWith("image/") ||
-        matchingFile.mimeType.startsWith("video/")
+        matchingFile.mimeType?.startsWith("image/") ||
+        matchingFile.mimeType?.startsWith("video/")
       ) {
         (async () => {
-          const rawContent = await getFileContentByHash(matchingFile?.hash);
+          if (!matchingFile.hash) return;
+          const rawContent = await getFileContentByHash(matchingFile.hash);
           if (rawContent instanceof Blob) {
             const objectUrl = URL.createObjectURL(rawContent);
             updateTerminalOutputs(
               trimmedCommand,
               <div className="my-2">
-                {matchingFile.mimeType.startsWith("image/") ? (
+                {matchingFile.mimeType?.startsWith("image/") ? (
                   <img
                     src={objectUrl}
                     alt={matchingFile.title}
@@ -163,7 +161,7 @@ const Terminal = () => {
           } else {
             updateTerminalOutputs(
               trimmedCommand,
-              <div>Error: Could not load image content.</div>,
+              <div>Error: Could not load file content.</div>,
             );
           }
         })();
