@@ -1,38 +1,83 @@
 import { useEffect, useRef, useState } from "react";
 import { IoMdClose } from "react-icons/io";
-import { renameNode } from "../db/fileOperations";
 import toast from "react-hot-toast";
-
+import { renameNode } from "../db/fileOperations";
+import { db } from "../db/db";
+import { useAppContext } from "../context/AppContext";
 interface RenameNodeModalProps {
-  nodeId: string;
   onClose: () => void;
 }
 
-const RenameNodeModal = ({ nodeId, onClose }: RenameNodeModalProps) => {
+const RenameNodeModal = ({ onClose }: RenameNodeModalProps) => {
+  const { renameNodeId, setRenameNodeId } = useAppContext();
   const [newNodeName, setNewNodeName] = useState("");
+  const [originalName, setOriginalName] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const [isRenaming, setIsRenaming] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    const loadNode = async () => {
+      if (!renameNodeId) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        setIsLoading(true);
+        const node = await db.nodes.get(renameNodeId);
+        if (!node) {
+          toast.error("The selected file or folder no longer exists.");
+          onClose();
+          return;
+        }
+        setOriginalName(node.title);
+        setNewNodeName(node.title);
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+          inputRef.current?.select();
+        });
+      } catch (error) {
+        console.error("Failed to load node:", error);
+        toast.error("Failed to load the item.");
+        onClose();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadNode();
+  }, [renameNodeId, onClose]);
+
+  const handleClose = () => {
+    setRenameNodeId(null);
+    onClose();
+  };
 
   const handleRenameNode = async () => {
-    const name = newNodeName.trim();
-    if (!name) {
+    const trimmedName = newNodeName.trim();
+    if (!renameNodeId) {
+      toast.error("No file or folder selected.");
+      return;
+    }
+    if (!trimmedName) {
       toast.error("Name cannot be empty.");
+      return;
+    }
+    if (trimmedName === originalName) {
+      handleClose();
       return;
     }
 
     try {
       setIsRenaming(true);
-      await renameNode(nodeId, name);
+      await renameNode(renameNodeId, trimmedName);
       toast.success("Renamed successfully.");
-      onClose();
+      handleClose();
     } catch (error) {
       console.error("Failed to rename node:", error);
-      const message =
-        error instanceof Error ? error.message : "Failed to rename node.";
-      toast.error(message);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to rename item.",
+      );
     } finally {
       setIsRenaming(false);
     }
@@ -41,18 +86,18 @@ const RenameNodeModal = ({ nodeId, onClose }: RenameNodeModalProps) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      void handleRenameNode();
+      handleRenameNode();
     }
+
     if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
+      handleClose();
     }
   };
 
   return (
     <div
-      onClick={onClose}
-      className="bg-black/30 fixed inset-0 flex items-center justify-center z-50">
+      onClick={handleClose}
+      className="bg-black/30 fixed inset-0 z-60 flex items-center justify-center">
       <div
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-sm overflow-hidden shadow-sm flex flex-col w-9/10 sm:w-1/2 md:w-1/3 lg:w-1/4">
@@ -60,38 +105,44 @@ const RenameNodeModal = ({ nodeId, onClose }: RenameNodeModalProps) => {
           <div className="flex items-center gap-2 pl-2">
             <p className="text-sm">Rename</p>
           </div>
+
           <button
-            onClick={onClose}
-            disabled={isRenaming}
+            onClick={handleClose}
             title="Close"
-            className="hover:bg-red-500 hover:text-white py-2 px-4">
+            disabled={isRenaming}
+            className="hover:bg-red-500 hover:text-white py-2 px-4 disabled:opacity-50">
             <IoMdClose size={14} />
           </button>
         </div>
+
         <div className="w-full h-0.5 bg-black/5" />
+
         <div className="py-2 space-y-2 px-3">
           <p>Enter new name:</p>
+
           <input
             ref={inputRef}
-            className="bg-black/8 w-full border-b-2 border-transparent focus:border-blue-500 outline-none px-1 py-0.5"
+            className="bg-black/8 w-full border-b-2 border-transparent focus:border-blue-500 outline-none px-1 py-0.5 disabled:opacity-50"
             type="text"
             value={newNodeName}
-            disabled={isRenaming}
+            disabled={isLoading || isRenaming}
             onChange={(e) => setNewNodeName(e.target.value)}
             onKeyDown={handleKeyDown}
           />
         </div>
+
         <div className="flex justify-end px-3 my-3 gap-2">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isRenaming}
-            className="bg-black/8 px-2 py-0.5 rounded-sm hover:opacity-85">
+            className="bg-black/8 px-2 py-0.5 rounded-sm hover:opacity-85 disabled:opacity-50">
             Cancel
           </button>
+
           <button
-            onClick={() => void handleRenameNode()}
-            disabled={isRenaming}
-            className="bg-blue-500 px-2 py-0.5 rounded-sm hover:opacity-85 text-white">
+            onClick={handleRenameNode}
+            disabled={isLoading || isRenaming}
+            className="bg-blue-500 px-2 py-0.5 rounded-sm hover:opacity-85 text-white disabled:opacity-50">
             {isRenaming ? "Renaming..." : "Rename"}
           </button>
         </div>

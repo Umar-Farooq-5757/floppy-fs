@@ -68,7 +68,7 @@ const ContextMenu = ({ position, onClose, menuItems }: ContextMenuProps) => {
         top: `${position.y}px`,
         left: `${position.x}px`,
       }}
-      className="fixed z-50 min-w-60 rounded-lg border border-slate-300 bg-white shadow-md py-1 px-2">
+      className="fixed z-50 min-w-60 rounded-sm border border-slate-300 bg-white shadow-md py-1 px-2">
       {menuItems.map((item, index) => (
         <button
           key={`${item.label}-${index}`}

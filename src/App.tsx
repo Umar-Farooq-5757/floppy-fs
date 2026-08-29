@@ -8,6 +8,7 @@ import { VscNewFile, VscNewFolder, VscRename } from "react-icons/vsc";
 import { RiDeleteBinLine } from "react-icons/ri";
 import { FiEdit3 } from "react-icons/fi";
 import { deleteNode } from "./db/fileOperations";
+import Terminal from "./components/Terminal";
 
 function App() {
   const {
@@ -19,6 +20,7 @@ function App() {
     closeMenu,
     handleOpenFile,
     setCreatingFileOrFolder,
+    checked,
   } = useAppContext();
 
   const generalMenuItems: MenuItem[] = [
@@ -56,11 +58,8 @@ function App() {
       icon: <VscRename className="size-4" />,
       label: "Rename",
       action: () => {
-        const targetId = activeMenu?.targetId;
-        if (!targetId) {
-          return;
-        }
-        setRenameNodeId(targetId);
+        if (!activeMenu?.targetId) return;
+        setRenameNodeId(activeMenu.targetId);
         setIsRenameNodeModalOpen(true);
       },
     },
@@ -85,25 +84,30 @@ function App() {
     activeMenu?.type === "node" ? nodeMenuItems : generalMenuItems;
 
   return (
-    <>
+    <div className={`min-h-screen ${!checked && 'bg-black text-white'}`}>
       <Header />
-      <section onContextMenu={openGeneralMenu} className="w-screen h-[90vh]">
-        <FileExplorer />
-      </section>
-      <ContextMenu
-        menuItems={currentMenuItems}
-        position={
-          activeMenu
-            ? {
-                x: activeMenu.x,
-                y: activeMenu.y,
-              }
-            : null
-        }
-        onClose={closeMenu}
-      />
+      {checked ? (
+        <section onContextMenu={openGeneralMenu} className="w-screen h-[90vh]">
+          <FileExplorer />
+          <ContextMenu
+            menuItems={currentMenuItems}
+            position={
+              activeMenu
+                ? {
+                    x: activeMenu.x,
+                    y: activeMenu.y,
+                  }
+                : null
+            }
+            onClose={closeMenu}
+          />
+        </section>
+      ) : (
+        <Terminal />
+      )}
+
       <Toaster position="top-right" reverseOrder={false} />
-    </>
+    </div>
   );
 }
 

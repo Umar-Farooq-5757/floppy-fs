@@ -1,6 +1,4 @@
-import React, { useEffect, useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db, type FileMetadata } from "../db/db";
+import React, { useState } from "react";
 import { IoArrowBackOutline } from "react-icons/io5";
 import { VscNewFile, VscNewFolder } from "react-icons/vsc";
 import { IoIosSearch } from "react-icons/io";
@@ -13,19 +11,12 @@ import RenameNodeModal from "./RenameNodeModal";
 import { createFile } from "../db/fileOperations";
 import { useAppContext } from "../context/AppContext";
 
-export interface BreadCrumbItem {
-  folderName: string;
-  folderId: string | null;
-}
-
 interface ToolbarProps {
   searchValue: string;
   setSearchValue: React.Dispatch<React.SetStateAction<string>>;
-  currentFolder: any;
   currentFolderId: string | null;
   setCurrentFolderId: React.Dispatch<React.SetStateAction<string | null>>;
   setIsNewNodeModalOpen: (isOpen: boolean) => void;
-  breadCrumb: BreadCrumbItem[];
   setCreatingFileOrFolder: React.Dispatch<
     React.SetStateAction<"file" | "folder">
   >;
@@ -34,13 +25,12 @@ interface ToolbarProps {
 const Toolbar: React.FC<ToolbarProps> = ({
   searchValue,
   setSearchValue,
-  currentFolder,
   currentFolderId,
   setCurrentFolderId,
   setIsNewNodeModalOpen,
-  breadCrumb,
   setCreatingFileOrFolder,
 }) => {
+  const { breadCrumb, currentFolder } = useAppContext();
   return (
     <>
       <section className="px-3 py-2 bg-black/4 border border-black/4 flex items-center gap-2">
@@ -67,10 +57,17 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <p className="text-sm">Import File (image, video)</p>
           <input
             type="file"
+            accept="image/*,video/*"
             style={{ display: "none" }}
             onChange={async (e) => {
               const file = e.target.files?.[0];
-              if (!file) {
+              if (!file) return;
+              if (
+                !file.type.startsWith("image/") &&
+                !file.type.startsWith("video/")
+              ) {
+                console.error("Only image and video files are allowed.");
+                e.target.value = "";
                 return;
               }
               try {
@@ -119,6 +116,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
 export const FileExplorer: React.FC = () => {
   const {
+    currentFolderId,
+    setCurrentFolderId,
     isNewNodeModalOpen,
     setIsNewNodeModalOpen,
     isRenameNodeModalOpen,
@@ -131,74 +130,27 @@ export const FileExplorer: React.FC = () => {
     handleOpenFile,
     creatingFileOrFolder,
     setCreatingFileOrFolder,
+    currentItems,
   } = useAppContext();
 
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-
   const [searchValue, setSearchValue] = useState("");
-
-  const [breadCrumb, setBreadCrumb] = useState<BreadCrumbItem[]>([
-    {
-      folderName: "Home",
-      folderId: null,
-    },
-  ]);
-
-  const currentItems = useLiveQuery(() => {
-    if (currentFolderId === null) {
-      return db.nodes.filter((node) => node.parentId === null).toArray();
-    }
-    return db.nodes.where("parentId").equals(currentFolderId).toArray();
-  }, [currentFolderId]);
 
   const filteredItems = currentItems?.filter((item) =>
     item.title.toLowerCase().includes(searchValue.toLowerCase()),
   );
 
-  const currentFolder = useLiveQuery(
-    () => (currentFolderId ? db.nodes.get(currentFolderId) : undefined),
-    [currentFolderId],
-  );
-
-  useEffect(() => {
-    const updateBreadcrumb = async () => {
-      if (!currentFolderId) {
-        setBreadCrumb([
-          {
-            folderName: "Home",
-            folderId: null,
-          },
-        ]);
-        return;
-      }
-      const path: BreadCrumbItem[] = [];
-      let currentId: string | null = currentFolderId;
-      while (currentId !== null) {
-        const folder: FileMetadata | undefined = await db.nodes.get(currentId);
-        if (!folder) {
-          break;
-        }
-        path.unshift({
-          folderName: folder.title,
-          folderId: folder.id,
-        });
-        currentId = folder.parentId;
-      }
-      setBreadCrumb([
-        {
-          folderName: "Home",
-          folderId: null,
-        },
-        ...path,
-      ]);
-    };
-    void updateBreadcrumb();
-  }, [currentFolderId]);
-
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files);
+
     for (const file of files) {
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+        console.warn(
+          `Skipped ${file.name}: Only image and video files are allowed.`,
+        );
+        continue;
+      }
+
       try {
         await createFile(currentFolderId, file.name, file, file.type);
       } catch (error) {
@@ -231,11 +183,9 @@ export const FileExplorer: React.FC = () => {
       <Toolbar
         searchValue={searchValue}
         setSearchValue={setSearchValue}
-        currentFolder={currentFolder}
         currentFolderId={currentFolderId}
         setCurrentFolderId={setCurrentFolderId}
         setIsNewNodeModalOpen={setIsNewNodeModalOpen}
-        breadCrumb={breadCrumb}
         setCreatingFileOrFolder={setCreatingFileOrFolder}
       />
       <div className="flex px-5 py-5 select-none flex-wrap gap-4">
@@ -300,7 +250,6 @@ export const FileExplorer: React.FC = () => {
       )}
       {isRenameNodeModalOpen && renameNodeId && (
         <RenameNodeModal
-          nodeId={renameNodeId}
           onClose={() => {
             setIsRenameNodeModalOpen(false);
             setRenameNodeId(null);
@@ -312,3 +261,10 @@ export const FileExplorer: React.FC = () => {
 };
 
 export default FileExplorer;
+
+/**
+ * Features for future:
+ * Sidebar Navigation Pane: A left-hand tree view for quick directory navigation, mimicking Windows Explorer's folder tree and quick access shortcuts.
+ * List & Details View: Add a toggle between the current grid view and a detailed tabular view showing columns for File Name, File Size, Type, and Date Modified.
+ * Dynamic Sorting & Filtering: Allow users to sort items by name, size, type, or date modified in ascending or descending order.
+ */
