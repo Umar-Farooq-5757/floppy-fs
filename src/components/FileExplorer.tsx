@@ -4,8 +4,6 @@ import { VscNewFile, VscNewFolder } from "react-icons/vsc";
 import { IoIosSearch } from "react-icons/io";
 import { FaAngleRight } from "react-icons/fa";
 import { MdOutlineFileUpload } from "react-icons/md";
-import Notepad from "./Notepad";
-import ImageViewer from "./ImageViewer";
 import NewNodeModal from "./NewNodeModal";
 import RenameNodeModal from "./RenameNodeModal";
 import { createFile } from "../db/fileOperations";
@@ -33,7 +31,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   const { breadCrumb, currentFolder } = useAppContext();
   return (
     <>
-      <section className="px-3 py-2 bg-black/4 border border-black/4 flex items-center gap-2">
+      <section className="px-3 py-2 bg-black/4 border border-black/4 flex flex-wrap items-center gap-2">
         <div
           onClick={() => {
             setCreatingFileOrFolder("file");
@@ -54,7 +52,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
         </div>
         <label className="flex items-center cursor-default gap-2 hover:bg-black/4 w-fit py-1 px-2 rounded-xs">
           <MdOutlineFileUpload />
-          <p className="text-sm">Import File (image, video)</p>
+          <p className="text-sm">
+            Import File <span className="hidden sm:inline">(image, video)</span>
+          </p>
           <input
             type="file"
             accept="image/*,video/*"
@@ -81,14 +81,14 @@ const Toolbar: React.FC<ToolbarProps> = ({
           />
         </label>
       </section>
-      <section className="px-3 py-2 flex gap-3">
+      <section className="px-3 py-2 flex items-center gap-3 w-full">
         <button
           onClick={() => setCurrentFolderId(currentFolder?.parentId ?? null)}
           disabled={currentFolderId === null}
-          className="hover:bg-black/10 px-2 rounded-xs disabled:opacity-40">
+          className="hover:bg-black/10 p-2 sm:px-2 sm:py-2 rounded-xs disabled:opacity-40 shrink-0">
           <IoArrowBackOutline />
         </button>
-        <div className="flex border border-black/25 py-1 px-2 grow cursor-default overflow-hidden">
+        <div className="flex border border-black/25 py-1 px-2 grow items-center overflow-x-auto whitespace-nowrap cursor-default min-w-0">
           {breadCrumb.map((item, idx) => (
             <div
               onClick={() => setCurrentFolderId(item.folderId)}
@@ -99,12 +99,25 @@ const Toolbar: React.FC<ToolbarProps> = ({
             </div>
           ))}
         </div>
-        <div className="border border-black/25 flex items-center gap-2 py-1 px-1">
+        <div className="border border-black/25 hidden sm:flex items-center gap-2 py-1 px-2 w-64 shrink-0">
           <IoIosSearch />
           <input
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="outline-none"
+            className="outline-none w-full bg-transparent"
+            type="text"
+            placeholder="Search..."
+          />
+        </div>
+      </section>
+      {/* Mobile search bar fallback row */}
+      <section className="px-3 pb-2 sm:hidden flex items-center">
+        <div className="border border-black/25 flex items-center gap-2 py-1 px-2 w-full">
+          <IoIosSearch />
+          <input
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            className="outline-none w-full bg-transparent"
             type="text"
             placeholder="Search..."
           />
@@ -125,8 +138,6 @@ export const FileExplorer: React.FC = () => {
     renameNodeId,
     setRenameNodeId,
     openNodeMenu,
-    activeFile,
-    setActiveFile,
     handleOpenFile,
     creatingFileOrFolder,
     setCreatingFileOrFolder,
@@ -177,7 +188,6 @@ export const FileExplorer: React.FC = () => {
     }
     return "/img/anonymous.png";
   };
-
   return (
     <section onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <Toolbar
@@ -188,7 +198,7 @@ export const FileExplorer: React.FC = () => {
         setIsNewNodeModalOpen={setIsNewNodeModalOpen}
         setCreatingFileOrFolder={setCreatingFileOrFolder}
       />
-      <div className="flex px-5 py-5 select-none flex-wrap gap-4">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 px-3 sm:px-5 py-5 select-none gap-0">
         {filteredItems?.map((item) => (
           <div
             key={item.id}
@@ -200,16 +210,16 @@ export const FileExplorer: React.FC = () => {
                 await handleOpenFile(item);
               }
             }}
-            className="flex flex-col items-center text-sm hover:bg-black/5 p-2 rounded-sm text-center">
+            className="flex flex-col items-center text-sm hover:bg-black/5 p-2 px-0 rounded-sm text-center">
             {item.type === "folder" ? (
               <img
-                className="size-22 object-contain"
+                className="size-16 sm:size-22 object-contain"
                 src="/img/folder.png"
                 alt="folder icon"
               />
             ) : (
               <img
-                className="size-22 object-contain"
+                className="size-16 sm:size-22 object-contain"
                 src={renderIcon(item.mimeType)}
                 alt="file icon"
               />
@@ -218,29 +228,7 @@ export const FileExplorer: React.FC = () => {
           </div>
         ))}
       </div>
-      {activeFile && activeFile.textContent !== undefined && (
-        <Notepad
-          key={activeFile.file.id}
-          id={activeFile.file.id}
-          title={activeFile.file.title}
-          text={activeFile.textContent}
-          setActiveFile={setActiveFile}
-        />
-      )}
-      {activeFile && activeFile.objectUrl && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          {activeFile.file.mimeType?.startsWith("image/") && (
-            <ImageViewer title={activeFile.file.title} />
-          )}
-          {activeFile.file.mimeType?.startsWith("video/") && (
-            <video
-              src={activeFile.objectUrl}
-              controls
-              className="max-h-[60vh]"
-            />
-          )}
-        </div>
-      )}
+      
       {isNewNodeModalOpen && (
         <NewNodeModal
           creatingFileOrFolder={creatingFileOrFolder}

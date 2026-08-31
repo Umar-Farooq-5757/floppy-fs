@@ -54,7 +54,7 @@ const Notepad: React.FC<NotepadProps> = ({
       className="bg-black/30 fixed inset-0 flex items-center justify-center z-50">
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`bg-white font-mono rounded-sm overflow-hidden shadow-sm transition-all flex flex-col ${notepadSize.height} ${notepadSize.width}`}>
+        className={`bg-white text-black font-mono rounded-sm overflow-hidden shadow-sm transition-all flex flex-col ${notepadSize.height} ${notepadSize.width}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 pl-2">
             <img

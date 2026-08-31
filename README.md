@@ -3,7 +3,7 @@
 A File System that runs entirely in the browser.
 
 ## Features:
-#### UI
+#### UI:
 - Create files and folders.
 - Different type of files (text, image and video files supported).
 - Right click anywhere on the screen to open context menu and perform actions.
@@ -15,9 +15,14 @@ A File System that runs entirely in the browser.
 - A search bar to search files in current directory.
 - Full CRUD functionality is available.
 - Unique icon for each type of file.
-#### Terminal
+- Copy/Cut > Paste functionality is available thorugh context menu.
+#### Terminal:
 - Dark themed terminal for moving around the file system.
 - `ls` for displaying all the files/folders in current directory.
 - `cat <filename>` for viewing the content stored in file.
 - `cd <foldername>` for changing directory.
+- `touch <filename>` for creating files.
+- `mkdir <foldername>` for creating folders.
+- `rm <target>` for deleting file or folder.
+- `edit <filename>` for opening file in the editor.
 - `clear` for clearing the terminal.

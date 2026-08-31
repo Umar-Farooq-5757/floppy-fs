@@ -76,7 +76,7 @@ const NewNodeModal = ({
       onClose();
     } catch (error) {
       console.error("Failed to create folder:", error);
-      toast.error(
+      toast.error( 
         error instanceof Error ? error.message : "Failed to create folder.",
       );
     } finally {

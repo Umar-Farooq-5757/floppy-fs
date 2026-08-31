@@ -471,3 +471,237 @@ export const deleteNode = async (id: string): Promise<void> => {
     await deleteNodeRecursive(id);
   });
 };
+
+/* ----------------------------------------------------
+ * COPY NODE
+ * -------------------------------------------------- */
+
+/**
+ * Splits a filename into its name and extension.
+ *
+ * Examples:
+ * "photo.png" -> ["photo", ".png"]
+ * "archive.tar.gz" -> ["archive.tar", ".gz"]
+ * "README" -> ["README", ""]
+ */
+const splitFileName = (
+  title: string,
+): {
+  name: string;
+  extension: string;
+} => {
+  const lastDotIndex = title.lastIndexOf(".");
+  /*
+   * No extension or hidden file such as ".gitignore".
+   */
+  if (lastDotIndex <= 0) {
+    return {
+      name: title,
+      extension: "",
+    };
+  }
+  return {
+    name: title.slice(0, lastDotIndex),
+    extension: title.slice(lastDotIndex),
+  };
+};
+
+/**
+ * Generates a unique name for a copied node.
+ *
+ * Examples:
+ *
+ * file.txt
+ * file (Copy).txt
+ * file (Copy 2).txt
+ *
+ * Folder
+ * Folder (Copy)
+ * Folder (Copy 2)
+ */
+const generateCopyTitle = async (
+  parentId: string | null,
+  originalTitle: string,
+  type: "file" | "folder",
+): Promise<string> => {
+  let baseName = originalTitle;
+  let extension = "";
+  /*
+   * Preserve file extensions when copying files.
+   */
+  if (type === "file") {
+    const splitName = splitFileName(originalTitle);
+    baseName = splitName.name;
+    extension = splitName.extension;
+  }
+  let copyNumber = 1;
+  while (true) {
+    const candidateTitle =
+      copyNumber === 1
+        ? `${baseName} (Copy)${extension}`
+        : `${baseName} (Copy ${copyNumber})${extension}`;
+    const existingNode = await findNodeByName(parentId, candidateTitle);
+    if (!existingNode) {
+      return candidateTitle;
+    }
+    copyNumber += 1;
+  }
+};
+
+/**
+ * Internal recursive copy function.
+ *
+ * Copies a node and, when the node is a folder,
+ * recursively copies all of its descendants.
+ *
+ * Returns the ID of the newly created node.
+ *
+ * IMPORTANT:
+ * This function assumes the caller already opened
+ * the Dexie transaction.
+ */
+const copyNodeRecursive = async (
+  sourceId: string,
+  targetParentId: string | null,
+  useCopyName: boolean,
+): Promise<string> => {
+  const sourceNode = await db.nodes.get(sourceId);
+  if (!sourceNode) {
+    throw new Error("Source file or folder not found.");
+  }
+  const newId = crypto.randomUUID();
+  const now = new Date();
+  /*
+   * The root copied node receives a unique "Copy" name.
+   *
+   * Children inside the copied folder keep their original
+   * names because they are being copied into a newly created
+   * folder hierarchy.
+   */
+  const newTitle = useCopyName
+    ? await generateCopyTitle(targetParentId, sourceNode.title, sourceNode.type)
+    : sourceNode.title;
+  /*
+   * Create the copied folder.
+   */
+  if (sourceNode.type === "folder") {
+    await db.nodes.add({
+      id: newId,
+      parentId: targetParentId,
+      title: newTitle,
+      type: "folder",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    /*
+     * Copy every child recursively.
+     */
+    const children = await db.nodes
+      .where("parentId")
+      .equals(sourceNode.id)
+      .toArray();
+    for (const child of children) {
+      await copyNodeRecursive(child.id, newId, false);
+    }
+    return newId;
+  }
+
+  /*
+   * Copy a file.
+   *
+   * The content itself does not need to be duplicated.
+   * Multiple file metadata records can safely reference
+   * the same content hash.
+   *
+   * This works perfectly with your existing content
+   * deduplication and garbage collection system.
+   */
+  if (!sourceNode.hash) {
+    throw new Error("Cannot copy this file because its content is missing.");
+  }
+  const contentExists = await db.contents.get(sourceNode.hash);
+  if (!contentExists) {
+    throw new Error(
+      "Cannot copy this file because its stored content is missing.",
+    );
+  }
+  await db.nodes.add({
+    id: newId,
+    parentId: targetParentId,
+    title: newTitle,
+    type: "file",
+    hash: sourceNode.hash,
+    mimeType: sourceNode.mimeType,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return newId;
+};
+
+/**
+ * Copies a file or folder into another folder.
+ *
+ * Files reuse the same content hash because the filesystem
+ * already supports content deduplication.
+ *
+ * Folders are copied recursively with new IDs for every
+ * copied node.
+ *
+ * The returned value is the ID of the newly copied root node.
+ */
+export const copyNode = async (
+  id: string,
+  newParentId: string | null,
+): Promise<string> => {
+  if (!id) {
+    throw new Error("Invalid source node ID.");
+  }
+
+  return db.transaction("rw", [db.nodes, db.contents], async () => {
+    const sourceNode = await db.nodes.get(id);
+    if (!sourceNode) {
+      throw new Error("File or folder not found.");
+    }
+    /*
+     * Validate destination.
+     */
+    if (newParentId !== null) {
+      const targetParent = await db.nodes.get(newParentId);
+      if (!targetParent) {
+        throw new Error("Destination folder not found.");
+      }
+      if (targetParent.type !== "folder") {
+        throw new Error("Files cannot contain other files or folders.");
+      }
+    }
+    /*
+     * Prevent copying a node directly into itself.
+     */
+    if (id === newParentId) {
+      throw new Error("A folder cannot be copied into itself.");
+    }
+    /*
+     * Prevent copying a folder into one of its descendants.
+     */
+    if (sourceNode.type === "folder" && newParentId !== null) {
+      let currentParentId: string | null = newParentId;
+
+      while (currentParentId !== null) {
+        if (currentParentId === id) {
+          throw new Error(
+            "A folder cannot be copied into one of its own subfolders.",
+          );
+        }
+        const currentParent: FileMetadata | undefined =
+          await db.nodes.get(currentParentId);
+
+        if (!currentParent) {
+          break;
+        }
+        currentParentId = currentParent.parentId;
+      }
+    }
+    return copyNodeRecursive(id, newParentId, true);
+  });
+};

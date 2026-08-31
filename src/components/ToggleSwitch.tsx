@@ -12,9 +12,11 @@ const ToggleSwitch = ({
   "aria-label": ariaLabel = "Toggle",
 }: ToggleSwitchProps) => {
   return (
-    <div onClick={() => onChange(!checked)} className="px-2 pl-12">
+    <div
+      onClick={() => onChange(!checked)}
+      className="px-2 pl-6 sm:pl-12 cursor-pointer">
       <label
-        className={`relative inline-block h-6 w-16 ${className}`}
+        className={`relative inline-block h-6 w-12 sm:w-16 ${className}`}
         onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
@@ -30,13 +32,13 @@ const ToggleSwitch = ({
         {/* track */}
         <span
           aria-hidden="true"
-          className="absolute top-0 right-0 bottom-0 -left-1 rounded-full border-2 border-[#323232] bg-[#FFDA6E] shadow-[2px_2px_0_#323232] transition-all duration-300 peer-checked:-translate-x-9.5"
+          className="absolute top-0 right-0 bottom-0 -left-1 rounded-full border-2 border-[#323232] bg-[#FFDA6E] shadow-[2px_2px_0_#323232] transition-all duration-300 peer-checked:-translate-x-6 sm:peer-checked:-translate-x-9.5"
         />
 
-        {/* thumb - Also cleaned up the Tailwind typo here */}
+        {/* thumb */}
         <span
           aria-hidden="true"
-          className="absolute size-4.5 bottom-0.75 left-0.5 rounded-full border-2 border-[#323232] bg-white"
+          className="absolute size-4.5 bottom-0.75 left-0.5 rounded-full border-2 border-[#323232] bg-white transition-transform duration-300"
         />
 
         {/* static focus ring */}

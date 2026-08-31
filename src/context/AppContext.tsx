@@ -28,6 +28,11 @@ export interface BreadCrumbItem {
   folderId: string | null;
 }
 
+interface MovingNode {
+  id?: string;
+  action?: "copy" | "cut";
+}
+
 interface AppContextType {
   isNewNodeModalOpen: boolean;
   setIsNewNodeModalOpen: (isOpen: boolean) => void;
@@ -54,6 +59,8 @@ interface AppContextType {
   setCurrentFolderId: React.Dispatch<React.SetStateAction<string | null>>;
   currentItems: FileMetadata[] | undefined;
   currentFolder: any;
+  movingNode: MovingNode | null;
+  setMovingNode: React.Dispatch<React.SetStateAction<MovingNode | null>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -61,9 +68,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppContextProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(
-    "917da684-f779-4f03-b5f5-09a4dbb4a132",
-  );
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [isNewNodeModalOpen, setIsNewNodeModalOpen] = useState(false);
   const [isRenameNodeModalOpen, setIsRenameNodeModalOpen] = useState(false);
   const [renameNodeId, setRenameNodeId] = useState<string | null>(null);
@@ -72,6 +77,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({
   const [creatingFileOrFolder, setCreatingFileOrFolder] = useState<
     "file" | "folder"
   >("file");
+  const [movingNode, setMovingNode] = useState<MovingNode | null>(null);
   const [checked, setChecked] = useState(() => {
     const savedMode = localStorage.getItem("mode");
     return savedMode !== null ? JSON.parse(savedMode) : true;
@@ -88,7 +94,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const currentItems = useLiveQuery(() => {
-    if (currentFolderId === null) {
+    if (currentFolderId === null || currentFolderId === undefined) {
       return db.nodes.filter((node) => node.parentId === null).toArray();
     }
     return db.nodes.where("parentId").equals(currentFolderId).toArray();
@@ -229,6 +235,8 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({
         setBreadCrumb,
         currentItems,
         currentFolder,
+        movingNode,
+        setMovingNode,
       }}>
       {children}
     </AppContext.Provider>

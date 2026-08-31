@@ -8,8 +8,8 @@ const Header = () => {
     <header className={`py-0.5 px-3 ${!checked && 'bg-slate-900'}`}>
       <div className="flex justify-between items-center">
         <h1 className="font-bold text-lg">Floppy FS</h1>
-        <div className="flex items-center gap-10">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 md:gap-5 sm:gap-10">
+          <div className="flex items-center gap-1 sm:gap-3">
             <p className="font-semibold font-mono">Terminal Mode</p>
             <ToggleSwitch checked={checked} onChange={setChecked} />
             <p className="font-semibold font-mono">UI Mode</p>
