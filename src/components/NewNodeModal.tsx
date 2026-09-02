@@ -144,18 +144,18 @@ const NewNodeModal = ({
           />
         </div>
 
-        <div className="flex justify-end px-3 my-3 gap-2">
+        <div className="flex justify-end px-4 py-3 gap-2 border-t border-black/10">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="bg-black/8 px-2 py-0.5 rounded-sm hover:opacity-85 disabled:opacity-50">
+            className="bg-black/8 px-3 py-1.5 text-sm rounded-sm hover:bg-black/12 disabled:opacity-50 transition-colors">
             Cancel
           </button>
 
           <button
             onClick={() => void handleSubmit()}
             disabled={isLoading}
-            className="bg-blue-500 px-2 py-0.5 rounded-sm hover:opacity-85 text-white disabled:opacity-50">
+            className="bg-blue-500 px-3 py-1.5 text-sm rounded-sm hover:bg-blue-600 text-white disabled:opacity-50 transition-colors">
             {isLoading ? "Creating..." : "Create"}
           </button>
         </div>

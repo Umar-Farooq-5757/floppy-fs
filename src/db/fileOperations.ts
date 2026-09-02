@@ -1,3 +1,4 @@
+import JSZip from "jszip";
 import { db, type FileMetadata } from "./db";
 
 /* ----------------------------------------------------
@@ -205,31 +206,65 @@ export const createFolder = async (
 /* ----------------------------------------------------
  * CREATE FILE
  * -------------------------------------------------- */
+/**
+ * Reads a Blob while reporting progress.
+ */
+const readBlobWithProgress = async (
+  blob: Blob,
+  onProgress?: (progress: number) => void,
+): Promise<Blob> => {
+  if (!onProgress) {
+    return blob;
+  }
+  const reader = blob.stream().getReader();
+  let loaded = 0;
+  onProgress(0);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      loaded += value.byteLength;
+      onProgress(
+        blob.size === 0 ? 100 : Math.round((loaded / blob.size) * 100),
+      );
+    }
+    onProgress(100);
+    return blob;
+  } finally {
+    reader.releaseLock();
+  }
+};
 
 export const createFile = async (
   parentId: string | null,
   title: string,
   content: string | Blob = "",
   overrideMimeType?: string,
+  onProgress?: (progress: number) => void,
 ): Promise<string> => {
   const normalizedTitle = validateNodeTitle(title);
   await ensureUniqueName(parentId, normalizedTitle);
   const id = crypto.randomUUID();
-  const hash = await calculateHash(content);
+  let processedContent = content;
+
+  if (content instanceof Blob && onProgress) {
+    processedContent = await readBlobWithProgress(content, onProgress);
+  }
+  const hash = await calculateHash(processedContent);
+  const size = getContentSize(processedContent);
   const now = new Date();
+
   const mimeType = getMimeType(
     normalizedTitle,
-    overrideMimeType || (content instanceof Blob ? content.type : "text/plain"),
+    overrideMimeType ||
+      (processedContent instanceof Blob ? processedContent.type : "text/plain"),
   );
   await db.transaction("rw", [db.nodes, db.contents], async () => {
-    /*
-     * Store content by hash.
-     *
-     * put() makes this safe for duplicate content.
-     */
     await db.contents.put({
       hash,
-      content,
+      content: processedContent,
     });
     await db.nodes.add({
       id,
@@ -238,6 +273,7 @@ export const createFile = async (
       type: "file",
       hash,
       mimeType,
+      size,
       createdAt: now,
       updatedAt: now,
     });
@@ -276,18 +312,35 @@ export const renameNode = async (
     if (!node) {
       throw new Error("File or folder not found.");
     }
-    /*
-     * Do nothing if the name was not changed.
-     */
+    // Files must keep their original extension.
+    if (node.type === "file") {
+      const getExtension = (name: string): string => {
+        const lastDot = name.lastIndexOf(".");
+
+        // No extension
+        if (lastDot <= 0 || lastDot === name.length - 1) {
+          return "";
+        }
+        return name.slice(lastDot);
+      };
+      const originalExtension = getExtension(node.title);
+      const newExtension = getExtension(normalizedTitle);
+      if (originalExtension) {
+        if (!newExtension) {
+          throw new Error(
+            `File extension "${originalExtension}" cannot be removed.`,
+          );
+        }
+        if (originalExtension.toLowerCase() !== newExtension.toLowerCase()) {
+          throw new Error(
+            `File extension cannot be changed. This file must remain "${originalExtension}".`,
+          );
+        }
+      }
+    }
     if (node.title === normalizedTitle) {
       return;
     }
-    /*
-     * Check for duplicate names.
-     *
-     * This uses findNodeByName(), which is safe
-     * when parentId is null.
-     */
     await ensureUniqueName(node.parentId, normalizedTitle, node.id);
     const updatedCount = await db.nodes.update(id, {
       title: normalizedTitle,
@@ -298,7 +351,6 @@ export const renameNode = async (
     }
   });
 };
-
 /* ----------------------------------------------------
  * MOVE NODE
  * -------------------------------------------------- */
@@ -385,28 +437,20 @@ export const updateFileContent = async (
   }
   const oldHash = file.hash;
   const newHash = await calculateHash(newContent);
+  const newSize = getContentSize(newContent);
   await db.transaction("rw", [db.nodes, db.contents], async () => {
-    /*
-     * Store the new content.
-     */
     await db.contents.put({
       hash: newHash,
       content: newContent,
     });
-    /*
-     * Update the file metadata.
-     */
     const updatedCount = await db.nodes.update(id, {
       hash: newHash,
+      size: newSize,
       updatedAt: new Date(),
     });
     if (updatedCount === 0) {
       throw new Error("Failed to update file.");
     }
-    /*
-     * Garbage-collect old content if no other file
-     * references it.
-     */
     if (oldHash && oldHash !== newHash) {
       const remainingReferences = await db.nodes
         .where("hash")
@@ -589,7 +633,10 @@ const copyNodeRecursive = async (
       id: newId,
       parentId: targetParentId,
       title: newTitle,
-      type: "folder",
+      type: "file",
+      hash: sourceNode.hash,
+      mimeType: sourceNode.mimeType,
+      size: sourceNode.size,
       createdAt: now,
       updatedAt: now,
     });
@@ -704,4 +751,236 @@ export const copyNode = async (
     }
     return copyNodeRecursive(id, newParentId, true);
   });
+};
+
+/* ----------------------------------------------------
+ * DOWNLOAD NODE
+ * -------------------------------------------------- */
+
+/**
+ * Adds a file or folder recursively to a ZIP archive.
+ */
+const addNodeToZip = async (node: FileMetadata, zip: JSZip): Promise<void> => {
+  if (node.type === "file") {
+    if (!node.hash) {
+      throw new Error(`File "${node.title}" has no content.`);
+    }
+    const content = await getFileContentByHash(node.hash);
+    if (content === undefined || content === null) {
+      throw new Error(`Content for "${node.title}" could not be found.`);
+    }
+    zip.file(node.title, content);
+    return;
+  }
+  const folder = zip.folder(node.title);
+  if (!folder) {
+    throw new Error(`Failed to create folder "${node.title}" in archive.`);
+  }
+  const children = await db.nodes.where("parentId").equals(node.id).toArray();
+  for (const child of children) {
+    await addNodeToZip(child, folder);
+  }
+};
+
+/**
+ * Downloads a single file directly.
+ */
+const downloadSingleFile = async (node: FileMetadata): Promise<void> => {
+  if (!node.hash) {
+    throw new Error("This file has no content.");
+  }
+  const content = await getFileContentByHash(node.hash);
+  if (content === undefined || content === null) {
+    throw new Error("File content could not be found.");
+  }
+  let blob: Blob;
+  if (content instanceof Blob) {
+    blob = content;
+  } else {
+    blob = new Blob([content], {
+      type: node.mimeType || "text/plain",
+    });
+  }
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = node.title;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    /*
+     * Delay revocation slightly so the browser has time
+     * to begin the download.
+     */
+    window.setTimeout(() => {
+      URL.revokeObjectURL(objectUrl);
+    }, 1000);
+  }
+};
+
+/**
+ * Downloads a file or folder.
+ *
+ * Files are downloaded directly.
+ * Folders are downloaded as ZIP archives.
+ */
+export const downloadNode = async (id: string): Promise<void> => {
+  if (!id) {
+    throw new Error("Invalid node ID.");
+  }
+  const node = await db.nodes.get(id);
+  if (!node) {
+    throw new Error("File or folder not found.");
+  }
+  /*
+   * Download individual files directly.
+   */
+  if (node.type === "file") {
+    await downloadSingleFile(node);
+    return;
+  }
+  /*
+   * Folders are packaged recursively into a ZIP file.
+   */
+  const zip = new JSZip();
+  await addNodeToZip(node, zip);
+  const zipBlob = await zip.generateAsync({
+    type: "blob",
+  });
+  const objectUrl = URL.createObjectURL(zipBlob);
+
+  try {
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = `${node.title}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    window.setTimeout(() => {
+      URL.revokeObjectURL(objectUrl);
+    }, 1000);
+  }
+};
+
+/* ----------------------------------------------------
+ * SIZE HELPERS
+ * -------------------------------------------------- */
+
+/**
+ * Returns the size of file content in bytes.
+ */
+export const getContentSize = (content: string | Blob): number => {
+  if (content instanceof Blob) {
+    return content.size;
+  }
+
+  return new Blob([content]).size;
+};
+
+/**
+ * Calculates the total size of a folder recursively.
+ *
+ * Folder size is the sum of all files inside it,
+ * including files inside nested folders.
+ */
+export const getFolderSize = async (folderId: string): Promise<number> => {
+  if (!folderId) {
+    throw new Error("Invalid folder ID.");
+  }
+  const folder = await db.nodes.get(folderId);
+  if (!folder) {
+    throw new Error("Folder not found.");
+  }
+  if (folder.type !== "folder") {
+    throw new Error("The specified node is not a folder.");
+  }
+  const children = await db.nodes.where("parentId").equals(folderId).toArray();
+
+  let totalSize = 0;
+  for (const child of children) {
+    if (child.type === "file") {
+      totalSize += child.size ?? 0;
+    } else {
+      totalSize += await getFolderSize(child.id);
+    }
+  }
+  return totalSize;
+};
+
+export const formatFileSize = (bytes?: number): string => {
+  if (bytes === undefined || bytes === null) {
+    return "—";
+  }
+  if (bytes === 0) {
+    return "0 B";
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"];
+
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  const value = bytes / Math.pow(1024, index);
+  return `${value.toFixed(
+    index === 0 ? 0 : value >= 10 ? 1 : 2,
+  )} ${units[index]}`;
+};
+
+export interface TreeNode {
+  id: string;
+  title: string;
+  type: "file" | "folder";
+  size: number;
+  children?: TreeNode[];
+}
+
+export const getNodeTree = async (
+  parentId: string | null,
+): Promise<TreeNode[]> => {
+  const buildTree = async (folderId: string | null): Promise<TreeNode[]> => {
+    /*
+     * Dexie/IndexedDB does not allow null as an index key.
+     *
+     * Root-level nodes have parentId === null, so handle
+     * that case with filter() instead of equals(null).
+     */
+    const nodes =
+      folderId === null
+        ? await db.nodes.filter((node) => node.parentId === null).toArray()
+        : await db.nodes.where("parentId").equals(folderId).toArray();
+    nodes.sort((a, b) => {
+      // Folders first, then files.
+      if (a.type !== b.type) {
+        return a.type === "folder" ? -1 : 1;
+      }
+      return a.title.localeCompare(b.title, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+    return Promise.all(
+      nodes.map(async (node) => {
+        if (node.type === "folder") {
+          return {
+            id: node.id,
+            title: node.title,
+            type: "folder" as const,
+            size: 0,
+            children: await buildTree(node.id),
+          };
+        }
+        return {
+          id: node.id,
+          title: node.title,
+          type: "file" as const,
+          size: node.size ?? 0,
+        };
+      }),
+    );
+  };
+
+  return buildTree(parentId);
 };

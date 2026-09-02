@@ -7,6 +7,7 @@ export interface FileMetadata {
   type: "file" | "folder";
   hash?: string;
   mimeType?: string;
+  size?: number;
   createdAt: Date;
   updatedAt: Date;
 }
